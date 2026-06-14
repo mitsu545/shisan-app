@@ -55,6 +55,11 @@ body{
 .sec .sub{font-size:11.5px;color:var(--ink3)}
 .sec::before{content:"";width:18px;height:2px;background:var(--ai);border-radius:2px;align-self:center}
 
+details.tl-toggle summary::-webkit-details-marker { display: none; }
+details.tl-toggle summary { list-style: none; }
+details.tl-toggle .icon { margin-left: auto; color: var(--ink3); font-size: 10px; transition: transform 0.2s; }
+details.tl-toggle[open] .icon { transform: rotate(180deg); }
+
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px 16px;margin:11px 0}
 
 /* 資産サマリー */
@@ -203,7 +208,7 @@ input:focus{outline:none;border-color:var(--ai)}
 .flow{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:17px 15px;margin:11px 0}
 .flow .ft{font-size:13px;font-weight:800;margin-bottom:13px}
 .fstep{display:flex;gap:12px;align-items:flex-start;padding:9px 0;position:relative}
-.fstep:not(:last-child)::after{content:"";position:absolute;left:13px;top:32px;bottom:-2px;width:2px;background:var(--line2)}
+.fstep:not(:last-child)::after{content:"absolute";left:13px;top:32px;bottom:-2px;width:2px;background:var(--line2)}
 .fstep .fn{width:26px;height:26px;border-radius:50%;background:var(--ai-bg);color:var(--ai);font-weight:800;
   font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;z-index:1}
 .fstep .fc .fh{font-size:13.5px;font-weight:700;color:var(--ink)}
@@ -236,7 +241,6 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:50;background:rgba(237,233,22
 </head>
 <body>
 
-<!-- ========== DASHBOARD ========== -->
 <section class="tab act" id="tab-d">
 <div class="wrap">
   <div class="head">
@@ -245,7 +249,6 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:50;background:rgba(237,233,22
     <div class="status" id="status"><span class="pip"></span><span id="status-tx">読み込み中…</span></div>
   </div>
 
-  <!-- ① 資産サマリー -->
   <div class="sec"><span class="lbl">資産の現在地</span><span class="sub">備蓄＋流動</span></div>
   <div class="card">
     <div class="total">
@@ -271,11 +274,14 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:50;background:rgba(237,233,22
     </div>
   </div>
 
-  <!-- ② 将来出費タイムライン -->
-  <div class="sec"><span class="lbl">これから要るお金</span><span class="sub">期限が近い順</span></div>
-  <div id="timeline"></div>
+  <details class="tl-toggle">
+    <summary class="sec" style="cursor:pointer; user-select:none; outline:none;">
+      <span class="lbl">これから要るお金</span><span class="sub">期限が近い順</span>
+      <span class="icon">▼</span>
+    </summary>
+    <div id="timeline"></div>
+  </details>
 
-  <!-- ③ 今月／来月の着地 -->
   <div class="sec"><span class="lbl">流動の着地</span><span class="sub">週次入力から算出</span></div>
   <div class="card">
     <div class="land2">
@@ -288,7 +294,6 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:50;background:rgba(237,233,22
     </div>
   </div>
 
-  <!-- 週次入力 -->
   <div class="sec"><span class="lbl">今週の入力</span><span class="sub">ザイム累計を確定</span></div>
   <div class="card">
     <div class="howto">来月末の着地 ＝ <b>今月の着地（<span class="num" id="carry">—</span>万）</b> ＋ 給与 − ザイム累計。<br>毎週、月初からの<b>累計</b>を入れて「確定」を押すだけ。</div>
@@ -300,7 +305,6 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:50;background:rgba(237,233,22
     </div>
   </div>
 
-  <!-- 月末処理 -->
   <div class="sec"><span class="lbl">月末の締め</span><span class="sub">余剰を備蓄へ</span></div>
   <div class="card">
     <div class="month-grid">
@@ -325,7 +329,6 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:50;background:rgba(237,233,22
 </div>
 </section>
 
-<!-- ========== SETTINGS ========== -->
 <section class="tab" id="tab-s">
 <div class="wrap">
   <div class="head">
@@ -333,7 +336,6 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:50;background:rgba(237,233,22
     <h1>入力と設定</h1>
   </div>
 
-  <!-- 入力→影響フロー -->
   <div class="flow">
     <div class="ft">入力すると、どこに効くか</div>
     <div class="fstep"><div class="fn">1</div><div class="fc"><div class="fh">BASE口座の実額</div><div class="fd">→ ダッシュボードの「今月末の着地」になる</div></div></div>
@@ -342,7 +344,6 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:50;background:rgba(237,233,22
     <div class="fstep"><div class="fn">4</div><div class="fc"><div class="fh">週次のザイム累計</div><div class="fd">→ 「来月末の予測」が更新される</div></div></div>
   </div>
 
-  <!-- ① BASE実額 -->
   <div class="sec"><span class="lbl">① BASE口座の今月実額</span><span class="sub">千円単位</span></div>
   <div class="card">
     <div class="grid">
@@ -361,19 +362,16 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:50;background:rgba(237,233,22
     </div>
   </div>
 
-  <!-- ② 備蓄残高 -->
   <div class="sec"><span class="lbl">② 備蓄バンクの残高</span><span class="sub">貯蓄用口座</span></div>
   <div class="card">
     <div class="fld full"><label>備蓄バンク残高（千円）</label><input type="number" id="d-res" inputmode="numeric"><div class="to">備蓄200万バーと総預金に反映</div></div>
   </div>
 
-  <!-- ③ 将来の出費 -->
   <div class="sec"><span class="lbl">③ 将来の出費を登録</span><span class="sub">例：10月 家賃更新 5万</span></div>
   <div id="goals"></div>
   <button class="add-goal" id="add-goal">＋ 出費を追加（いつ・いくら）</button>
   <p class="hint">登録すると、その月の必要ラインが「50万＋出費」にせり上がります。例：10月に5万なら、10月までに55万。<br>「確保済」を入れると、不足分と毎月の推奨積立を自動計算します。</p>
 
-  <!-- バックアップ -->
   <div class="sec"><span class="lbl">スプレッドシート自動保存</span><span class="sub">任意</span></div>
   <div class="card">
     <div class="fld full"><label>GAS WebアプリURL</label><input type="url" id="d-gas" placeholder="https://script.google.com/macros/s/.../exec"></div>
@@ -386,7 +384,6 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:50;background:rgba(237,233,22
 </div>
 </section>
 
-<!-- ========== NAV ========== -->
 <nav><div class="nav-in">
   <button class="nv act" id="nav-d">
     <span class="dot" id="dot-d"></span>
