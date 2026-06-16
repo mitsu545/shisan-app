@@ -296,7 +296,12 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:50;background:rgba(237,233,22
 
   <div class="sec"><span class="lbl">今週の入力</span><span class="sub">ザイム累計を確定</span></div>
   <div class="card">
-    <div class="howto">来月末の着地 ＝ <b>今月の着地（<span class="num" id="carry">—</span>万）</b> ＋ 給与 − ザイム累計。<br>毎週、月初からの<b>累計</b>を入れて「確定」を押すだけ。</div>
+    <div class="howto">来月末の着地 ＝ <b>今月の着地（<span class="num" id="carry">—</span>万）</b> ＋ 給与 − ザイム累計 ＋ <b>今月の貯金</b>。<br>毎週、月初からの<b>累計</b>を入れて「確定」を押すだけ。</div>
+    <div class="fld full" style="margin-bottom:13px">
+      <label>今月の貯金（千円）</label>
+      <input type="number" id="d-save" inputmode="numeric" placeholder="例：NISA・貯蓄に回した額">
+      <div class="to">ザイム支出から相殺 → 来月予測に＋</div>
+    </div>
     <div id="weeks"></div>
     <button class="btn ghost" id="wk-toggle" style="margin-top:11px;padding:11px;font-size:13px">過去・未来の週も表示</button>
     <div class="reso">
@@ -423,6 +428,7 @@ var TOTAL_TARGET=2500000;   // 総預金の目標
 /* ---------- データ ---------- */
 var D={
   bal:0,sal:0,rent:0,ideco:0,c1:0,c2:0,seisan:0,top:0,
+  savings:0,   // 今月の貯金（ザイム支出から相殺する額）
   weeks:[wk(),wk(),wk(),wk(),wk()],
   hist:[],streak:0,gas:"",lastBk:null,
   reserve:0,
@@ -440,6 +446,7 @@ function load(){
     if(!Array.isArray(D.weeks)||D.weeks.length!==5)D.weeks=[wk(),wk(),wk(),wk(),wk()];
     if(!Array.isArray(D.hist))D.hist=[];
     if(!Array.isArray(D.goals))D.goals=[];
+    if(typeof D.savings!=="number")D.savings=0;  // 後方互換
     // 旧サブ口座 → 備蓄に合算（後方互換）
     if(o.sub1||o.sub2){D.reserve=(o.sub1||0)+(o.sub2||0);delete D.sub1;delete D.sub2;}
   }catch(e){}
@@ -482,6 +489,8 @@ function projZaim(){
   if(k<0)return ZAIM_AVG;                // まだ確定なし→月平均27万
   return D.weeks[k].cum/WEEKLY_RATE[k];  // 累計÷消化率＝月末予測
 }
+// 実質支出見込み：ザイム見込みから「今月の貯金」を相殺（貯金は消えず資産に残るため）
+function effectiveZaim(){return Math.max(0,projZaim()-(D.savings||0));}
 function cumAt(i){
   if(i<0)return 0;
   var k=lastFixed();
@@ -492,7 +501,8 @@ function cumAt(i){
   }
   return projZaim()*WEEKLY_RATE[i];       // 未確定の週：月末予測×その週の消化率
 }
-function nextLanding(){return thisLanding()+D.sal-projZaim();}
+// 来月末の予測：今月着地＋給与−（ザイム見込み−今月の貯金）
+function nextLanding(){return thisLanding()+D.sal-effectiveZaim();}
 
 /* ---------- タブ ---------- */
 var TABS=["d","s"],wkOpen=false;
@@ -761,7 +771,8 @@ function onChange(){fullRender();}
 
 /* ---------- 入力配線 ---------- */
 var MAP=[["d-bal","bal"],["d-sal","sal"],["d-rent","rent"],["d-ideco","ideco"],
-  ["d-c1","c1"],["d-c2","c2"],["d-seisan","seisan"],["d-top","top"],["d-res","reserve"]];
+  ["d-c1","c1"],["d-c2","c2"],["d-seisan","seisan"],["d-top","top"],["d-res","reserve"],
+  ["d-save","savings"]];
 var closeArmed=false;
 
 function wire(){
