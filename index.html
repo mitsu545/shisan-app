@@ -42,7 +42,7 @@ body{background:var(--bg);color:var(--ink);font-family:-apple-system,"Hiragino S
 .it .b{text-align:right;min-width:64px;color:var(--ink2);font-size:14px}
 .it.low{background:var(--red-bg)}.it.past{opacity:.55}
 .tag{font-size:11px;border-radius:8px;padding:2px 7px;margin-left:6px;white-space:nowrap}
-.t-done{background:var(--done);color:#555}.t-fix{background:var(--fix);color:var(--fix-ink)}.t-est{background:var(--est);color:var(--est-ink)}
+.t-done{background:var(--done);color:#555}.t-fix{background:var(--fix);color:var(--fix-ink)}.t-est{background:var(--est);color:var(--est-ink)}.t-wait{background:#fff;border:1px solid var(--est-ink);color:var(--est-ink)}
 .chk{border:1px solid var(--line);background:#fff;border-radius:8px;font-size:12px;padding:3px 6px;color:var(--ink2)}
 .add{position:fixed;left:16px;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));max-width:488px;margin:0 auto;
   background:#111;color:#fff;border:none;border-radius:16px;padding:16px;font-size:17px}
@@ -260,7 +260,11 @@ function sync(){if(!S.gas){$("sync").textContent="";return;}
     .catch(function(e){SYNC_ERR="メールの取り込みに失敗："+e.message;$("sync").textContent=SYNC_ERR;});}
 
 /* ---------- 画面 ---------- */
-function tag(st){return st==="done"?'<span class="tag t-done">済</span>':st==="fix"?'<span class="tag t-fix">確定</span>':'<span class="tag t-est">見込み</span>';}
+function tag(e){
+  if(e.st==="done")return '<span class="tag t-done">済</span>';
+  if(e.st==="fix")return '<span class="tag t-fix">確定</span>';
+  if(e.day<TODAY)return '<span class="tag t-wait">'+(e.unsure&&e.amt>0?'入金待ち':'未確認')+'</span>';  /* 日付は過ぎたが、メールでまだ確認できていない */
+  return '<span class="tag t-est">見込み</span>';}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
 function render(){
   var mo=+YM.slice(5);$("ttl").textContent=mo+"月の予報";
@@ -272,7 +276,9 @@ function render(){
   var av=c.minSafe-S.target;
   $("hero").className="hero"+(av<0?" bad":"");
   $("avail").innerHTML=man(Math.max(0,av))+"<small>万円</small>";
-  $("avail-note").textContent=av<0?"残したい額 "+m0(S.target)+"万まで、あと"+man(-av)+"万足りません"
+  var pend=c.pending>0?"入金待ちの精算など +"+man(c.pending)+"万 は数えていません。":"";
+  $("avail-note").textContent=av<0
+    ?"残したい額 "+m0(S.target)+"万まで、あと"+man(-av)+"万足りません。"+(pend?pend+(av+c.pending>=0?"入金されれば足ります。":"入金されても、あと"+man(-(av+c.pending))+"万足りません。"):"")
     :"残したい額 "+m0(S.target)+"万を守れます"+(c.pending>0?"（精算が入ったら +"+man(c.pending)+"万）":"");
   $("end").innerHTML=man(c.end)+"<small>万円</small>";
   var diff=c.end-S.target;$("end-bar").className="bar"+(diff<0?" bad":"");
@@ -300,7 +306,7 @@ function render(){
   $("btn-flow").textContent=($("flow").hidden?"▼":"▲")+" 今月の流れを見る（"+c.ev.length+"件）";
   var h='<div class="it"><span class="d">'+mo+'/1</span><span class="n">月初の残高</span><span class="b num">'+man(c.start)+'万</span></div>';
   c.ev.forEach(function(e,ix){h+='<div class="it'+(e===c.low?" low":"")+(e.day<TODAY&&e.st==="done"?" past":"")+'" data-ix="'+ix+'">'+
-    '<span class="d">'+mo+'/'+e.day+'</span><span class="n">'+esc(e.name)+tag(e.st)+'</span>'+
+    '<span class="d">'+mo+'/'+e.day+'</span><span class="n">'+esc(e.name)+tag(e)+'</span>'+
     '<span class="a num '+(e.amt<0?"minus":"plus")+'">'+sman(e.amt)+'</span><span class="b num">'+man(e.after)+'万</span></div>';});
   var um=unmatched();if(um.length){h+='<div class="sec">メールで見つかった、予定にない入出金</div>';
     um.forEach(function(mv,k){h+='<div class="it"><span class="d">'+mo+'/'+(+mv.date.slice(8,10))+'</span><span class="n">'+(mv.dir>0?"入金":"出金")+'</span><span class="a num '+(mv.dir<0?"minus":"plus")+'">'+sman(mv.dir*mv.amount)+'</span><button class="chk" data-um="'+k+'">追加</button></div>';});}

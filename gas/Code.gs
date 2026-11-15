@@ -64,8 +64,8 @@ function setup() {
 function readBills_() {
   var out = [];
   eachMessage_('from:info@mail.rakuten-card.co.jp subject:お支払予定金額', DAYS_BILL, function (body) {
-    var a = body.match(/合計お支払予定金額\s*([\d,]+)\s*円/);
-    var d = body.match(/お支払日\s*(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+    var a = body.match(/合計お支払予定金額\D*?([\d,]+)\s*円/);
+    var d = body.match(/お支払日\D*?(\d{4})\/(\d{1,2})\/(\d{1,2})/);
     if (a && d) out.push({ card: 'card1', amount: num_(a[1]), due: ymd_(d[1], d[2], d[3]) });
   });
   return out;
@@ -99,21 +99,26 @@ function readMoves_() {
     if (m && m[1] === '楽天銀行') {
       out.push({ id: msg.getId(), dir: m[2] === '入金' ? 1 : -1, date: ymd_(m[3], m[4], m[5]), amount: num_(m[6]) });
     }
-  });
+  }, true);
   return out;
 }
 
 /* ---------- 共通 ---------- */
-function eachMessage_(query, days, fn) {
+/* html を true にすると、HTMLメールの本文（タグを除いた文字）で読む */
+function eachMessage_(query, days, fn, html) {
   var q = query + ' newer_than:' + days + 'd';
   for (var start = 0; start < 500; start += 100) {
     var threads = GmailApp.search(q, start, 100);
     if (!threads.length) break;
     threads.forEach(function (th) {
-      th.getMessages().forEach(function (msg) { fn(msg.getPlainBody().replace(/\s+/g, ' '), msg); });
+      th.getMessages().forEach(function (msg) { fn(html ? htmlText_(msg.getBody()) : msg.getPlainBody().replace(/\s+/g, ' '), msg); });
     });
     if (threads.length < 100) break;
   }
+}
+function htmlText_(h) {
+  return String(h).replace(/<(style|script)[\s\S]*?<\/\1>/gi, ' ').replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ').replace(/&yen;/g, '円').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
 }
 function add_(sum, y, mo, v) { var k = y + '-' + pad_(mo); sum[k] = (sum[k] || 0) + v; }
 function num_(s) { return parseInt(String(s).replace(/,/g, ''), 10) || 0; }
