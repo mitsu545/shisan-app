@@ -81,7 +81,7 @@ input,select{width:100%;font-size:17px;padding:10px 12px;border:1px solid var(--
 
 <div class="tile"><div class="cap">来月末に残りそう（ざっくり）</div>
   <div class="v num" id="next">—<small>万円</small></div>
-  <div class="cap" id="next-note" style="margin-top:6px"></div></div>
+  <div class="cap" id="next-note" style="margin-top:8px;font-size:13px;line-height:1.7"></div></div>
 
 <div class="tile warn" id="big-tile"><div class="cap">次に大きく動く日</div>
   <div class="mv"><span id="big-name"></span><span class="num" id="big-amt"></span></div>
@@ -156,7 +156,7 @@ var DEFAULT_TPL=[
   {key:"card1", name:"カード①",    day:27,amt:-240000}
 ];
 /* メールの入出金を予定に当てはめるルール（日の幅・金額の幅） */
-var MATCH={seisan:{d:[1,6],min:50000,max:150000,dir:1},rent:{d:[8,12],min:100000,max:130000,dir:-1},
+var MATCH={seisan:{d:[1,11],min:30000,max:200000,dir:1},rent:{d:[8,12],min:100000,max:130000,dir:-1},
   salary:{d:[12,16],min:280000,max:360000,dir:1},ideco:{d:[24,29],min:22000,max:24000,dir:-1},card2:{d:[25,29],min:1,max:100000,dir:-1},card1:{d:[26,30],min:1,max:9e9,dir:-1}};
 
 var SYNC_ERR="";
@@ -168,12 +168,40 @@ var NOW=new Date(), YM=ymOf(NOW), TODAY=NOW.getDate();
 
 /* ---------- 月のデータ ---------- */
 function usageOf(card,ym){var u=S.feed&&S.feed.usage&&S.feed.usage[card];return u&&u[ym]!=null?u[ym]:null;}
+function dim(ym){var p=ym.split("-");return new Date(+p[0],+p[1],0).getDate();}
+function sum(a){return a.reduce(function(s,x){return s+x;},0);}
+function inRule(key,mv){var r=MATCH[key];if(!r||r.dir!==mv.dir)return false;var d=+mv.date.slice(8,10);
+  return d>=r.d[0]&&d<=r.d[1]&&mv.amount>=r.min&&mv.amount<=r.max;}
+/* 精算：直近3回の入金の平均／給料：いちばん新しい入金（どちらも、その月より前の実績から） */
+function histInfo(key,ym){var f=S.feed;if(!f||!f.moves)return null;
+  var a=f.moves.filter(function(mv){return mv.date.slice(0,7)<ym&&inRule(key,mv);}).sort(function(x,y){return x.date<y.date?1:-1;});
+  if(!a.length)return null;var last=a[0].date.slice(0,7);
+  if(key==="salary")return{amt:a[0].amount,last:last};
+  var n=a.slice(0,3);return{amt:Math.round(sum(n.map(function(x){return x.amount;}))/n.length/1000)*1000,last:last};}
+function usageComplete(ym){var sn=S.feed&&S.feed.since;return !sn||ym>sn.slice(0,7);}
+function histUsage(card,beforeYm){var u=S.feed&&S.feed.usage&&S.feed.usage[card];if(!u)return[];
+  return Object.keys(u).filter(function(k){return k<beforeYm&&usageComplete(k);}).sort().slice(-3).map(function(k){return u[k];});}
+/* カードのその月の利用額の予測。月の途中は「ここまでのペース」と「過去3か月の平均」を、日がたつほどペース寄りに混ぜる */
+function projUsage(card,ym){
+  var done=usageOf(card,ym),h=histUsage(card,ym),avg=h.length?Math.round(sum(h)/h.length):null;
+  if(ym<YM){return(done==null||!usageComplete(ym))?null:{est:done,low:done,high:done,done:done,avg:avg};}
+  if(done==null&&avg==null)return null;
+  if(ym>YM)return{est:avg,low:avg,high:avg,done:0,avg:avg};
+  done=done||0;
+  var el=Math.max(1,TODAY-1),d=dim(ym),pace=Math.round(done/el*d),w=Math.min(1,el/d);
+  var est=avg==null?pace:Math.round(w*pace+(1-w)*avg);
+  var lo=Math.min(pace,avg==null?pace:avg),hi=Math.max(pace,avg==null?pace:avg);
+  return{est:Math.max(done,est),low:Math.max(done,lo),high:Math.max(done,hi),done:done,avg:avg};}
 function cardMemos(ym){var m=S.months[ym];return m?m.memos.filter(function(x){return x.kind==="card";}).reduce(function(s,x){return s+x.amt;},0):0;}
 /* カードの見込み額：先月の利用額（メール）があればそれ、なければひな型＋先月のカードメモ */
-function cardEst(t,ym){var prev=addYm(ym,-1),u=usageOf(t.key,prev);
-  if(u!=null)return -u; return t.amt-(t.key==="card1"?cardMemos(prev):0);}
+function cardEst(t,ym){var prev=addYm(ym,-1),p=projUsage(t.key,prev);
+  if(p&&p.est!=null)return -p.est; return t.amt-(t.key==="card1"?cardMemos(prev):0);}
 function tplAmt(t,ym){if(t.until&&ym>t.until)return null;if(t.from&&ym<t.from)return null;
-  var a=(t.key==="card1"||t.key==="card2")?cardEst(t,ym):t.amt;(t.adj||[]).forEach(function(x){if(ym>=x.from)a+=x.delta;});return a;}
+  var a,last=null;
+  if(t.key==="card1"||t.key==="card2")a=cardEst(t,ym);
+  else{a=t.amt;if(t.key==="seisan"||t.key==="salary"){var h=histInfo(t.key,ym);if(h){a=h.amt;last=h.last;}}}
+  /* 補正（DC開始など）は、その月より前の実績にだけ足す。実績がすでに補正後なら足さない */
+  (t.adj||[]).forEach(function(x){if(ym>=x.from&&(last==null||last<x.from))a+=x.delta;});return a;}
 function ensure(ym){
   if(S.months[ym])return S.months[ym];
   var m={start:null,items:S.tpl.filter(function(t){return tplAmt(t,ym)!=null;}).map(function(t){return{id:uid(),key:t.key,name:t.name,day:t.day,
@@ -201,22 +229,23 @@ function calc(ym){
   ev.forEach(function(e){if(e.day>=today&&e.after<low){low=e.after;lowDay=e;}});
   return{ev:ev,start:start,end:end,minSafe:minSafe,pending:pending,low:lowDay};}
 
-function nextEnd(){var c=calc(YM);if(c.start==null)return null;var n=addYm(YM,1),sum=0;
-  S.tpl.forEach(function(t){var a=tplAmt(t,n);if(a!=null)sum+=a;});
-  var nm=S.months[n];if(nm)nm.memos.forEach(function(x){if(x.kind!=="card")sum+=x.kind==="in"?x.amt:-x.amt;});
-  return c.end+sum;}
+function nextEnd(){var c=calc(YM);if(c.start==null)return null;var n=addYm(YM,1),tot=0,up=0,dn=0;
+  S.tpl.forEach(function(t){var a=tplAmt(t,n);if(a==null)return;tot+=a;
+    if(t.key==="card1"||t.key==="card2"){var p=projUsage(t.key,YM);if(p&&p.est!=null&&a===-p.est){up+=p.est-p.low;dn+=p.high-p.est;}}});
+  var nm=S.months[n];if(nm)nm.memos.forEach(function(x){if(x.kind!=="card")tot+=x.kind==="in"?x.amt:-x.amt;});
+  var est=c.end+tot;return{est:est,lo:est-dn,hi:est+up};}
 
 /* ---------- メールからの取り込み（GAS） ---------- */
 function applyFeed(){var f=S.feed;if(!f)return;
   Object.keys(S.months).forEach(function(ym){var m=S.months[ym];
+    if(ym>=YM)m.items.forEach(function(i){if(i.st==="est"&&!i.manual&&(i.key==="seisan"||i.key==="salary"||i.key==="card1"||i.key==="card2")){
+      var t=S.tpl.filter(function(x){return x.key===i.key;})[0],a=t&&tplAmt(t,ym);if(a!=null)i.amt=a;}});
     (f.bills||[]).forEach(function(b){if(b.due.slice(0,7)!==ym)return;
       m.items.forEach(function(i){if(i.key===b.card&&i.st!=="done"){i.amt=-b.amount;i.day=+b.due.slice(8,10);i.st="fix";}});});
     (f.moves||[]).forEach(function(mv){if(S.used[mv.id]||mv.date.slice(0,7)!==ym)return;var d=+mv.date.slice(8,10);
       var hit=m.items.filter(function(i){var r=MATCH[i.key];if(!r||i.st==="done"||r.dir!==mv.dir||d<r.d[0]||d>r.d[1]||mv.amount<r.min||mv.amount>r.max)return false;
         if(i.st==="fix"&&(i.key==="card1"||i.key==="card2"))return mv.amount===-i.amt;return true;})[0];
       if(hit){hit.amt=mv.dir*mv.amount;hit.day=d;hit.st="done";S.used[mv.id]=1;}});});
-  /* 今月のカードの見込みを、先月の利用額で更新 */
-  var m=ensure(YM);m.items.forEach(function(i){if((i.key==="card1"||i.key==="card2")&&i.st==="est"){var t=S.tpl.filter(function(x){return x.key===i.key;})[0];if(t)i.amt=cardEst(t,YM);}});
   save();}
 function unmatched(){var f=S.feed;if(!f)return[];return(f.moves||[]).filter(function(mv){return !S.used[mv.id]&&mv.date.slice(0,7)===YM;});}
 function sync(){if(!S.gas){$("sync").textContent="";return;}
@@ -246,8 +275,12 @@ function render(){
   $("end-fill").style.width=Math.max(4,Math.min(100,c.end/(S.target*1.6)*100))+"%";
   $("end-note").textContent="残したい額 "+m0(S.target)+"万 "+(diff<0?"− ":"＋ ")+man(Math.abs(diff))+"万";
   var nx=nextEnd(),nm=S.months[YM].memos.filter(function(x){return x.kind==="card";}).length;
-  $("next").innerHTML=(nx==null?"—":"約"+Math.round(nx/10000))+"<small>万円</small>";
-  $("next-note").textContent="毎月の予定"+(nm?"＋カードの支出メモ "+nm+"件":"")+"から計算";
+  $("next").innerHTML=(nx==null?"—":"約"+Math.round(nx.est/10000))+"<small>万円</small>";
+  var nn=[];if(nx){var lo=Math.round(nx.lo/10000),hi=Math.round(nx.hi/10000);if(hi>lo)nn.push("ふれ幅 "+lo+"〜"+hi+"万");}
+  [["card1","カード①"],["card2","カード②"]].forEach(function(k){var p=projUsage(k[0],YM);
+    if(p&&p.est!=null)nn.push(k[1]+"：今月ここまで "+man(p.done)+"万 → 月末までに約"+man(p.est)+"万"+(p.avg!=null?"（過去3か月の平均 "+man(p.avg)+"万）":""));});
+  nn.push("精算・給料は過去の入金から、家賃などは毎月の予定から計算"+(nm?"＋支出メモ "+nm+"件":""));
+  $("next-note").innerHTML=nn.join("<br>");
   var big=c.ev.filter(function(e){return e.day>=TODAY&&e.st!=="done"&&Math.abs(e.amt)>=50000;})[0];
   $("big-tile").hidden=!big;
   if(big){$("big-name").textContent=mo+"/"+big.day+" "+big.name;$("big-amt").textContent=sman(big.amt);
@@ -287,7 +320,7 @@ function openEdit(e){editing=e;$("e-ttl").textContent=e.name;$("e-day").value=e.
 $("e-cancel").onclick=function(){$("dlg-edit").close();};
 $("e-ok").onclick=function(){var r=editing.ref,amt=parseInt($("e-amt").value,10),day=parseInt($("e-day").value,10);
   if(isNaN(amt)||!day)return;r.day=day;
-  if(editing.type==="memo"){r.amt=Math.abs(amt);r.kind=amt<0?"out":"in";}else{r.amt=amt;r.st=$("e-st").value;}
+  if(editing.type==="memo"){r.amt=Math.abs(amt);r.kind=amt<0?"out":"in";}else{if(r.amt!==amt)r.manual=true;r.amt=amt;r.st=$("e-st").value;}
   save();$("dlg-edit").close();render();};
 $("e-del").onclick=function(){if(!confirm("「"+editing.name+"」を今月から消しますか？"))return;var m=S.months[YM];
   m.items=m.items.filter(function(i){return i!==editing.ref;});m.memos=m.memos.filter(function(x){return x!==editing.ref;});
