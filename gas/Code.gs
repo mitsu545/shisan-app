@@ -7,14 +7,14 @@
  *   3. 三井住友「ご利用のお知らせ」 … 月ごとの利用額（カード②の見込み）
  *   4. マネーフォワードME「入金／出金のお知らせ」 … 楽天銀行の入出金（1万円以上）
  *
- * しくみ：1時間に1回、結果をスクリプトの中に保存しておく。アプリが開いたときは、保存した結果をすぐ返す。
+ * しくみ：1日に1回（朝6時ごろ）、結果をスクリプトの中に保存しておく。アプリが開いたときは、保存した結果をすぐ返す。
  *
- * 設定：①スクリプトプロパティに TOKEN（合言葉）を入れる ②エディタで setup を1回実行（1時間ごとの自動更新が始まる）
+ * 設定：①スクリプトプロパティに TOKEN（合言葉）を入れる ②エディタで setup を1回実行（毎日の自動更新が始まる）
  */
 
 var DAYS_BILL = 70;   // 請求のご案内：何日前まで読むか
-var DAYS_HIST = 200;  // 利用額・入出金：何日前まで読むか（過去の傾向に使う）
-var MAX_AGE_MIN = 90; // 保存した結果が、これより古ければ読み直す（分）
+var DAYS_HIST = 230;  // 利用額・入出金：何日前まで読むか（半年分の傾向に使う）
+var MAX_AGE_HOURS = 26; // 保存した結果が、これより古ければ読み直す（時間）
 
 function doGet(e) {
   var props = PropertiesService.getScriptProperties();
@@ -26,13 +26,13 @@ function doGet(e) {
   if (cached) {
     try {
       var c = JSON.parse(cached);
-      if (Date.now() - new Date(c.at).getTime() < MAX_AGE_MIN * 60000) return json_(c);
+      if (Date.now() - new Date(c.at).getTime() < MAX_AGE_HOURS * 3600000) return json_(c);
     } catch (err) { /* 読み直す */ }
   }
   return json_(refresh());
 }
 
-/** 読み直して保存する（1時間ごとに自動で動く） */
+/** 読み直して保存する（毎日自動で動く） */
 function refresh() {
   var out = {
     bills: readBills_(),
@@ -51,12 +51,12 @@ function refresh() {
   return out;
 }
 
-/** 最初に1回だけ実行：1時間ごとの自動更新を作る */
+/** 最初に1回だけ実行：毎日の自動更新を作る */
 function setup() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (t.getHandlerFunction() === 'refresh') ScriptApp.deleteTrigger(t);
   });
-  ScriptApp.newTrigger('refresh').timeBased().everyHours(1).create();
+  ScriptApp.newTrigger('refresh').timeBased().everyDays(1).atHour(6).create();
   Logger.log(JSON.stringify(refresh(), null, 1));
 }
 

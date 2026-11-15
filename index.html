@@ -59,6 +59,10 @@ input,select{width:100%;font-size:17px;padding:10px 12px;border:1px solid var(--
 .tpl{display:grid;grid-template-columns:1.4fr .7fr 1.2fr .5fr;gap:6px;align-items:center;margin-top:6px}
 .tpl input{padding:8px;font-size:15px}.small{font-size:12px;color:var(--ink3);margin-top:6px}
 .sec{font-size:14px;font-weight:700;margin-top:18px}
+details{margin-top:8px}summary{font-size:14px;color:var(--ink2);cursor:pointer;padding:6px 0;list-style:none}
+summary::-webkit-details-marker{display:none}summary::after{content:" ▼";font-size:11px}details[open] summary::after{content:" ▲"}
+.dr{display:flex;justify-content:space-between;gap:8px;padding:8px 0 4px;font-size:14px;border-top:1px solid var(--line)}
+.dr.tot{font-weight:700;font-size:15px}.ds{color:var(--ink2);font-size:12.5px;line-height:1.6;padding:0 0 6px}
 </style>
 </head>
 <body>
@@ -81,7 +85,7 @@ input,select{width:100%;font-size:17px;padding:10px 12px;border:1px solid var(--
 
 <div class="tile"><div class="cap">来月末に残りそう（ざっくり）</div>
   <div class="v num" id="next">—<small>万円</small></div>
-  <div class="cap" id="next-note" style="margin-top:8px;font-size:13px;line-height:1.7"></div></div>
+  <details id="next-det"><summary id="next-sum">内訳とカードの支出</summary><div id="next-note"></div></details></div>
 
 <div class="tile warn" id="big-tile"><div class="cap">次に大きく動く日</div>
   <div class="mv"><span id="big-name"></span><span class="num" id="big-amt"></span></div>
@@ -180,18 +184,18 @@ function histInfo(key,ym){var f=S.feed;if(!f||!f.moves)return null;
   var n=a.slice(0,3);return{amt:Math.round(sum(n.map(function(x){return x.amount;}))/n.length/1000)*1000,last:last};}
 function usageComplete(ym){var sn=S.feed&&S.feed.since;return !sn||ym>sn.slice(0,7);}
 function histUsage(card,beforeYm){var u=S.feed&&S.feed.usage&&S.feed.usage[card];if(!u)return[];
-  return Object.keys(u).filter(function(k){return k<beforeYm&&usageComplete(k);}).sort().slice(-3).map(function(k){return u[k];});}
-/* カードのその月の利用額の予測。月の途中は「ここまでのペース」と「過去3か月の平均」を、日がたつほどペース寄りに混ぜる */
+  return Object.keys(u).filter(function(k){return k<beforeYm&&usageComplete(k);}).sort().slice(-6).map(function(k){return u[k];});}
+/* カードのその月の利用額の予測。月の途中は「ここまでのペース」と「過去6か月の平均」を、日がたつほどペース寄りに混ぜる */
 function projUsage(card,ym){
-  var done=usageOf(card,ym),h=histUsage(card,ym),avg=h.length?Math.round(sum(h)/h.length):null;
-  if(ym<YM){return(done==null||!usageComplete(ym))?null:{est:done,low:done,high:done,done:done,avg:avg};}
+  var done=usageOf(card,ym),h=histUsage(card,ym),avg=h.length?Math.round(sum(h)/h.length):null,n=h.length;
+  if(ym<YM){return(done==null||!usageComplete(ym))?null:{est:done,low:done,high:done,done:done,avg:avg,n:n};}
   if(done==null&&avg==null)return null;
-  if(ym>YM)return{est:avg,low:avg,high:avg,done:0,avg:avg};
+  if(ym>YM)return{est:avg,low:avg,high:avg,done:0,avg:avg,n:n};
   done=done||0;
   var el=Math.max(1,TODAY-1),d=dim(ym),pace=Math.round(done/el*d),w=Math.min(1,el/d);
   var est=avg==null?pace:Math.round(w*pace+(1-w)*avg);
   var lo=Math.min(pace,avg==null?pace:avg),hi=Math.max(pace,avg==null?pace:avg);
-  return{est:Math.max(done,est),low:Math.max(done,lo),high:Math.max(done,hi),done:done,avg:avg};}
+  return{est:Math.max(done,est),low:Math.max(done,lo),high:Math.max(done,hi),done:done,avg:avg,n:n};}
 function cardMemos(ym){var m=S.months[ym];return m?m.memos.filter(function(x){return x.kind==="card";}).reduce(function(s,x){return s+x.amt;},0):0;}
 /* カードの見込み額：先月の利用額（メール）があればそれ、なければひな型＋先月のカードメモ */
 function cardEst(t,ym){var prev=addYm(ym,-1),p=projUsage(t.key,prev);
@@ -229,11 +233,11 @@ function calc(ym){
   ev.forEach(function(e){if(e.day>=today&&e.after<low){low=e.after;lowDay=e;}});
   return{ev:ev,start:start,end:end,minSafe:minSafe,pending:pending,low:lowDay};}
 
-function nextEnd(){var c=calc(YM);if(c.start==null)return null;var n=addYm(YM,1),tot=0,up=0,dn=0;
-  S.tpl.forEach(function(t){var a=tplAmt(t,n);if(a==null)return;tot+=a;
+function nextEnd(){var c=calc(YM);if(c.start==null)return null;var n=addYm(YM,1),tot=0,up=0,dn=0,parts=[];
+  S.tpl.forEach(function(t){var a=tplAmt(t,n);if(a==null)return;tot+=a;parts.push({key:t.key,name:t.name,amt:a});
     if(t.key==="card1"||t.key==="card2"){var p=projUsage(t.key,YM);if(p&&p.est!=null&&a===-p.est){up+=p.est-p.low;dn+=p.high-p.est;}}});
-  var nm=S.months[n];if(nm)nm.memos.forEach(function(x){if(x.kind!=="card")tot+=x.kind==="in"?x.amt:-x.amt;});
-  var est=c.end+tot;return{est:est,lo:est-dn,hi:est+up};}
+  var nm=S.months[n];if(nm)nm.memos.forEach(function(x){if(x.kind!=="card"){var v=x.kind==="in"?x.amt:-x.amt;tot+=v;parts.push({key:"memo",name:x.name,amt:v});}});
+  var est=c.end+tot;return{est:est,lo:est-dn,hi:est+up,end:c.end,parts:parts};}
 
 /* ---------- メールからの取り込み（GAS） ---------- */
 function applyFeed(){var f=S.feed;if(!f)return;
@@ -276,11 +280,18 @@ function render(){
   $("end-note").textContent="残したい額 "+m0(S.target)+"万 "+(diff<0?"− ":"＋ ")+man(Math.abs(diff))+"万";
   var nx=nextEnd(),nm=S.months[YM].memos.filter(function(x){return x.kind==="card";}).length;
   $("next").innerHTML=(nx==null?"—":"約"+Math.round(nx.est/10000))+"<small>万円</small>";
-  var nn=[];if(nx){var lo=Math.round(nx.lo/10000),hi=Math.round(nx.hi/10000);if(hi>lo)nn.push("ふれ幅 "+lo+"〜"+hi+"万");}
-  [["card1","カード①"],["card2","カード②"]].forEach(function(k){var p=projUsage(k[0],YM);
-    if(p&&p.est!=null)nn.push(k[1]+"：今月ここまで "+man(p.done)+"万 → 月末までに約"+man(p.est)+"万"+(p.avg!=null?"（過去3か月の平均 "+man(p.avg)+"万）":""));});
-  nn.push("精算・給料は過去の入金から、家賃などは毎月の予定から計算"+(nm?"＋支出メモ "+nm+"件":""));
-  $("next-note").innerHTML=nn.join("<br>");
+  var asof=S.feedAt?(function(d){return(d.getMonth()+1)+"/"+d.getDate();})(new Date(S.feedAt)):"";
+  var row=function(a,b,c,cls){return '<div class="dr'+(cls?" "+cls:"")+'"><span>'+a+'</span><span class="num '+(c||"")+'">'+b+'</span></div>';};
+  var h2="";
+  if(nx){var lo=Math.round(nx.lo/10000),hi=Math.round(nx.hi/10000);
+    $("next-sum").textContent=(hi>lo?"ふれ幅 "+lo+"〜"+hi+"万 ・ ":"")+"内訳とカードの支出";
+    h2+=row("今月末の見込み",man(nx.end)+"万");
+    nx.parts.forEach(function(x){h2+=row("来月　"+esc(x.name),sman(x.amt),x.amt<0?"minus":"plus");
+      if(x.key==="card1"||x.key==="card2"){var p=projUsage(x.key,YM);
+        if(p&&p.est!=null)h2+='<div class="ds">今月ここまでのカード利用 <b>'+man(p.done)+'万</b>'+(asof?'（'+asof+'時点）':'')+' → 月末までに約'+man(p.est)+'万'+(p.avg!=null?'（過去'+p.n+'か月の平均 '+man(p.avg)+'万）':'')+'</div>';}});
+    h2+=row("来月末の見込み","約"+Math.round(nx.est/10000)+"万","","tot");
+    h2+='<div class="ds">カードは「今月ここまでのペース」と「過去の月の平均」を、日がたつほどペース寄りに混ぜて予測。精算・給料は過去の入金から、家賃などは毎月の予定から。'+(nm?'支出メモ '+nm+'件。':'')+'</div>';}
+  $("next-note").innerHTML=h2;
   var big=c.ev.filter(function(e){return e.day>=TODAY&&e.st!=="done"&&Math.abs(e.amt)>=50000;})[0];
   $("big-tile").hidden=!big;
   if(big){$("big-name").textContent=mo+"/"+big.day+" "+big.name;$("big-amt").textContent=sman(big.amt);
