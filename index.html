@@ -59,6 +59,8 @@ input,select{width:100%;font-size:17px;padding:10px 12px;border:1px solid var(--
 .tpl{display:grid;grid-template-columns:1.4fr .7fr 1.2fr .5fr;gap:6px;align-items:center;margin-top:6px}
 .tpl input{padding:8px;font-size:15px}.small{font-size:12px;color:var(--ink3);margin-top:6px}
 .sec{font-size:14px;font-weight:700;margin-top:18px}
+input[type=range]{width:100%;padding:0;margin-top:10px;accent-color:var(--green)}
+.rg{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;color:var(--ink2)}.rg b{font-size:16px;color:var(--ink)}
 details{margin-top:8px}summary{font-size:14px;color:var(--ink2);cursor:pointer;padding:6px 0;list-style:none}
 summary::-webkit-details-marker{display:none}summary::after{content:" ▼";font-size:11px}details[open] summary::after{content:" ▲"}
 .dr{display:flex;justify-content:space-between;gap:8px;padding:8px 0 4px;font-size:14px;border-top:1px solid var(--line)}
@@ -86,6 +88,17 @@ summary::-webkit-details-marker{display:none}summary::after{content:" ▼";font-
 <div class="tile"><div class="cap">来月末に残りそう（ざっくり）</div>
   <div class="v num" id="next">—<small>万円</small></div>
   <details id="next-det"><summary id="next-sum">内訳とカードの支出</summary><div id="next-note"></div></details></div>
+
+<div class="tile" id="save-tile"><div class="cap">貯金の目安（Zaimの「貯金」に入れる額）</div>
+  <div class="v num" id="save-amt">—<small>円</small></div>
+  <div class="cap" id="save-why" style="margin-top:6px;font-size:13px;line-height:1.7"></div>
+  <div id="cap-box" hidden>
+    <div class="cap" style="margin-top:14px">今月のカード利用を抑える（月末までの合計）</div>
+    <input type="range" id="cap-range" step="10000">
+    <div class="rg"><span id="cap-lo"></span><b id="cap-now"></b><span id="cap-hi"></span></div>
+    <div class="cap" id="cap-note" style="font-size:13px;margin-top:4px"></div>
+    <button class="chk" id="cap-reset" style="margin-top:8px">ペースのままに戻す</button>
+  </div></div>
 
 <div class="tile warn" id="big-tile"><div class="cap">次に大きく動く日</div>
   <div class="mv"><span id="big-name"></span><span class="num" id="big-amt"></span></div>
@@ -122,6 +135,8 @@ summary::-webkit-details-marker{display:none}summary::after{content:" ▼";font-
 <dialog id="dlg-set"><h2>設定</h2>
   <label>残したい額（円）</label><input type="number" inputmode="numeric" id="s-target">
   <label>今月の月初残高（円）</label><input type="number" inputmode="numeric" id="s-start">
+  <label>今日の残高（円）　口座を見て入れると、ここから先を計算し直します</label><input type="number" inputmode="numeric" id="s-bal" placeholder="空欄＝月初の残高から計算">
+  <div class="small" id="s-bal-note"></div>
   <div class="sec">毎月の予定（翌月に自動でコピー）</div>
   <div class="tpl cap"><span>名前</span><span>日</span><span>金額（出るのは−）</span><span>不確実</span></div>
   <div id="s-tpl"></div>
@@ -221,23 +236,36 @@ function startOf(ym){var m=ensure(ym);if(m.start!=null)return m.start;
   var p=S.months[addYm(ym,-1)];return p?calc(addYm(ym,-1)).end:null;}
 
 function calc(ym){
-  var ev=events(ym),start=startOf(ym),cur=ym===YM,today=cur?TODAY:0;
-  if(start==null)return{ev:ev,start:null};
-  var end=start,bal=start,safe=start,pending=0,lowDay=null,low=Infinity;
-  ev.forEach(function(e){end+=e.amt;e.after=end;});
+  var ev=events(ym),start=startOf(ym),cur=ym===YM,today=cur?TODAY:0,m=S.months[ym],an=cur&&m.anchor?m.anchor:null;
+  if(start==null&&!an)return{ev:ev,start:null};
+  var after=an?an.day:0,base=an?an.bal:start;      /* 今日の残高を入れたら、その日より後の動きだけを足す */
+  var run=start,end=base,safe=base,pending=0,lowDay=null,low=Infinity;
+  ev.forEach(function(e){
+    if(e.day<=after){if(run!=null){run+=e.amt;e.after=run;}else e.after=null;}
+    else{end+=e.amt;e.after=end;}});
+  var live=ev.filter(function(e){return e.day>after;});
   /* 今日まで：起きたとみなす（不確実な入金は「済」になるまで数えない） */
-  ev.forEach(function(e){if(e.day<=today){if(e.unsure&&e.st!=="done"&&e.amt>0){pending+=e.amt;return;}safe+=e.amt;}});
+  live.forEach(function(e){if(e.day<=today){if(e.unsure&&e.st!=="done"&&e.amt>0){pending+=e.amt;return;}safe+=e.amt;}});
   var minSafe=safe;
-  ev.forEach(function(e){if(e.day>today){if(e.unsure&&e.st!=="done"&&e.amt>0){pending+=e.amt;return;}safe+=e.amt;}
+  live.forEach(function(e){if(e.day>today){if(e.unsure&&e.st!=="done"&&e.amt>0){pending+=e.amt;return;}safe+=e.amt;}
     if(e.day>today&&safe<minSafe)minSafe=safe;});
-  ev.forEach(function(e){if(e.day>=today&&e.after<low){low=e.after;lowDay=e;}});
-  return{ev:ev,start:start,end:end,minSafe:minSafe,pending:pending,low:lowDay};}
+  live.forEach(function(e){if(e.day>=today&&e.after<low){low=e.after;lowDay=e;}});
+  return{ev:ev,start:start!=null?start:base,end:end,minSafe:minSafe,pending:pending,low:lowDay,an:an};}
 
-function nextEnd(){var c=calc(YM);if(c.start==null)return null;var n=addYm(YM,1),tot=0,up=0,dn=0,parts=[];
-  S.tpl.forEach(function(t){var a=tplAmt(t,n);if(a==null)return;tot+=a;parts.push({key:t.key,name:t.name,amt:a});
-    if(t.key==="card1"||t.key==="card2"){var p=projUsage(t.key,YM);if(p&&p.est!=null&&a===-p.est){up+=p.est-p.low;dn+=p.high-p.est;}}});
+function nextEnd(cap){var c=calc(YM);if(c.start==null)return null;var n=addYm(YM,1),tot=0,up=0,dn=0,parts=[],sumEst=0,sumDone=0;
+  var P={card1:projUsage("card1",YM),card2:projUsage("card2",YM)};
+  ["card1","card2"].forEach(function(k){if(P[k]&&P[k].est!=null){sumEst+=P[k].est;sumDone+=P[k].done;}});
+  var f=(cap!=null&&sumEst>0)?cap/sumEst:1;      /* カード利用を cap に抑えるなら、各カードをその割合で */
+  S.tpl.forEach(function(t){var a=tplAmt(t,n);if(a==null)return;
+    if(t.key==="card1"||t.key==="card2"){var p=P[t.key];
+      if(p&&p.est!=null&&a===-p.est){up+=p.est-p.low;dn+=p.high-p.est;a=-Math.max(p.done,Math.round(p.est*f));}}
+    tot+=a;parts.push({key:t.key,name:t.name,amt:a});});
   var nm=S.months[n];if(nm)nm.memos.forEach(function(x){if(x.kind!=="card"){var v=x.kind==="in"?x.amt:-x.amt;tot+=v;parts.push({key:"memo",name:x.name,amt:v});}});
-  var est=c.end+tot;return{est:est,lo:est-dn,hi:est+up,end:c.end,parts:parts};}
+  var est=c.end+tot;return{est:est,lo:est-dn,hi:est+up,base:est-dn/2,end:c.end,parts:parts,cardEst:sumEst,cardDone:sumDone};}
+/* 貯金の目安：今月の安全分と、来月末（やや悪い側）の安全分の、少ないほう */
+function advice(cap){var c=calc(YM);if(c.start==null)return null;var nx=nextEnd(cap);if(!nx)return null;
+  var now=c.minSafe-S.target,next=nx.base-S.target;
+  return{now:now,next:next,amt:Math.max(0,Math.floor(Math.min(now,next)/1000)*1000),nx:nx,c:c};}
 
 /* ---------- メールからの取り込み（GAS） ---------- */
 function applyFeed(){var f=S.feed;if(!f)return;
@@ -261,15 +289,32 @@ function sync(){if(!S.gas){$("sync").textContent="";return;}
 
 /* ---------- 画面 ---------- */
 function tag(e){
+  var an=S.months[YM]&&S.months[YM].anchor;
+  if(an&&e.day<=an.day&&e.st!=="done")return '<span class="tag t-done">残高に反映</span>';
   if(e.st==="done")return '<span class="tag t-done">済</span>';
   if(e.st==="fix")return '<span class="tag t-fix">確定</span>';
   if(e.day<TODAY)return '<span class="tag t-wait">'+(e.unsure&&e.amt>0?'入金待ち':'未確認')+'</span>';  /* 日付は過ぎたが、メールでまだ確認できていない */
   return '<span class="tag t-est">見込み</span>';}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+function yen(n){return Math.round(n).toLocaleString("ja-JP");}
+function renderSave(mcap){
+  var ad=advice(mcap!=null?mcap:null),box=$("cap-box");if(!ad){$("save-tile").hidden=true;return;}$("save-tile").hidden=false;
+  var nx=ad.nx,pace=nx.cardEst,done=nx.cardDone,lo=Math.ceil(done/10000)*10000,hi=Math.max(lo+10000,Math.round(pace*1.5/10000)*10000);
+  $("save-amt").innerHTML=yen(ad.amt)+"<small>円</small>";
+  $("save-why").innerHTML=(ad.amt>0?"この額までなら、今月も来月末も、残したい額 "+m0(S.target)+"万を守れます。":"今は貯金に回せません。")
+    +"<br>今月の安全分 "+(ad.now<0?"−":"")+man(Math.abs(ad.now))+"万／来月末（やや悪い側 "+man(nx.base)+"万）の安全分 "+(ad.next<0?"−":"")+man(Math.abs(ad.next))+"万 のうち、少ないほう";
+  box.hidden=!(pace>0);
+  if(pace>0){var r=$("cap-range"),v=mcap!=null?mcap:pace;v=Math.max(lo,Math.min(hi,v));
+    r.min=lo;r.max=hi;r.value=v;
+    $("cap-lo").textContent=man(lo)+"万（いま使った額）";$("cap-hi").textContent=man(hi)+"万";
+    $("cap-now").textContent=man(v)+"万に抑える";
+    var d=pace-v;
+    $("cap-note").textContent="いまのペースだと 約"+man(pace)+"万"+(mcap==null||d===0?"。左に動かすと、抑えた場合を試せます":d>0?" → 約"+man(d)+"万 抑える想定（貯金に回せる額が増えます）":" → ペースより約"+man(-d)+"万 多く使う想定");}}
 function render(){
   var mo=+YM.slice(5);$("ttl").textContent=mo+"月の予報";
   $("sync").textContent=SYNC_ERR||(S.feedAt?"メール取り込み："+new Date(S.feedAt).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}):"");
   var c=calc(YM);
+  if(c.an&&!SYNC_ERR)$("sync").textContent+=($("sync").textContent?" ・ ":"")+"残高入力 "+mo+"/"+c.an.day;
   $("ask-start").hidden=c.start!=null;$("ask-month").textContent=mo;
   if(c.start==null){["avail","end","next"].forEach(function(id){$(id).innerHTML='—<small>万円</small>';});
     $("avail-note").textContent="月初の残高を入れると計算します";$("big-tile").hidden=true;$("flow").innerHTML="";return;}
@@ -284,7 +329,7 @@ function render(){
   var diff=c.end-S.target;$("end-bar").className="bar"+(diff<0?" bad":"");
   $("end-fill").style.width=Math.max(4,Math.min(100,c.end/(S.target*1.6)*100))+"%";
   $("end-note").textContent="残したい額 "+m0(S.target)+"万 "+(diff<0?"− ":"＋ ")+man(Math.abs(diff))+"万";
-  var nx=nextEnd(),nm=S.months[YM].memos.filter(function(x){return x.kind==="card";}).length;
+  var mcap=S.months[YM].cap,nx=nextEnd(mcap!=null?mcap:null),nm=S.months[YM].memos.filter(function(x){return x.kind==="card";}).length;
   $("next").innerHTML=(nx==null?"—":"約"+Math.round(nx.est/10000))+"<small>万円</small>";
   var asof=S.feedAt?(function(d){return(d.getMonth()+1)+"/"+d.getDate();})(new Date(S.feedAt)):"";
   var row=function(a,b,c,cls){return '<div class="dr'+(cls?" "+cls:"")+'"><span>'+a+'</span><span class="num '+(c||"")+'">'+b+'</span></div>';};
@@ -296,8 +341,10 @@ function render(){
       if(x.key==="card1"||x.key==="card2"){var p=projUsage(x.key,YM);
         if(p&&p.est!=null)h2+='<div class="ds">今月ここまでのカード利用 <b>'+man(p.done)+'万</b>'+(asof?'（'+asof+'時点）':'')+' → 月末までに約'+man(p.est)+'万'+(p.avg!=null?'（過去'+p.n+'か月の平均 '+man(p.avg)+'万）':'')+'</div>';}});
     h2+=row("来月末の見込み","約"+Math.round(nx.est/10000)+"万","","tot");
+    if(mcap!=null)h2+='<div class="ds">※「カード利用を'+man(mcap)+'万に抑える」設定で計算しています</div>';
     h2+='<div class="ds">カードは「今月ここまでのペース」と「過去の月の平均」を、日がたつほどペース寄りに混ぜて予測。精算・給料は過去の入金から、家賃などは毎月の予定から。'+(nm?'支出メモ '+nm+'件。':'')+'</div>';}
   $("next-note").innerHTML=h2;
+  renderSave(mcap);
   var big=c.ev.filter(function(e){return e.day>=TODAY&&e.st!=="done"&&Math.abs(e.amt)>=50000;})[0];
   $("big-tile").hidden=!big;
   if(big){$("big-name").textContent=mo+"/"+big.day+" "+big.name;$("big-amt").textContent=sman(big.amt);
@@ -305,9 +352,11 @@ function render(){
     $("big-note").textContent="このあと残高は "+man(big.after)+"万"+(c.low===big?"（今月いちばん少ない）":"");}
   $("btn-flow").textContent=($("flow").hidden?"▼":"▲")+" 今月の流れを見る（"+c.ev.length+"件）";
   var h='<div class="it"><span class="d">'+mo+'/1</span><span class="n">月初の残高</span><span class="b num">'+man(c.start)+'万</span></div>';
-  c.ev.forEach(function(e,ix){h+='<div class="it'+(e===c.low?" low":"")+(e.day<TODAY&&e.st==="done"?" past":"")+'" data-ix="'+ix+'">'+
+  var anRow=c.an?'<div class="it"><span class="d">'+mo+'/'+c.an.day+'</span><span class="n"><b>今日の残高（入力）</b></span><span class="b num">'+man(c.an.bal)+'万</span></div>':"",anShown=false;
+  c.ev.forEach(function(e,ix){if(c.an&&!anShown&&e.day>c.an.day){h+=anRow;anShown=true;}h+='<div class="it'+(e===c.low?" low":"")+(e.day<TODAY&&e.st==="done"?" past":"")+'" data-ix="'+ix+'">'+
     '<span class="d">'+mo+'/'+e.day+'</span><span class="n">'+esc(e.name)+tag(e)+'</span>'+
-    '<span class="a num '+(e.amt<0?"minus":"plus")+'">'+sman(e.amt)+'</span><span class="b num">'+man(e.after)+'万</span></div>';});
+    '<span class="a num '+(e.amt<0?"minus":"plus")+'">'+sman(e.amt)+'</span><span class="b num">'+(e.after==null?"":man(e.after)+"万")+'</span></div>';});
+  if(c.an&&!anShown)h+=anRow;
   var um=unmatched();if(um.length){h+='<div class="sec">メールで見つかった、予定にない入出金</div>';
     um.forEach(function(mv,k){h+='<div class="it"><span class="d">'+mo+'/'+(+mv.date.slice(8,10))+'</span><span class="n">'+(mv.dir>0?"入金":"出金")+'</span><span class="a num '+(mv.dir<0?"minus":"plus")+'">'+sman(mv.dir*mv.amount)+'</span><button class="chk" data-um="'+k+'">追加</button></div>';});}
   var cm=S.months[YM].memos.filter(function(x){return x.kind==="card";});
@@ -324,6 +373,8 @@ function render(){
 
 /* ---------- 操作 ---------- */
 $("in-start").addEventListener("change",function(){var v=parseInt(this.value,10);if(isNaN(v))return;ensure(YM).start=v;save();render();});
+$("cap-range").addEventListener("input",function(){S.months[YM].cap=parseInt(this.value,10);save();render();});
+$("cap-reset").onclick=function(){S.months[YM].cap=null;save();render();};
 $("btn-flow").onclick=function(){$("flow").hidden=!$("flow").hidden;render();};
 $("btn-add").onclick=function(){$("a-name").value="";$("a-amt").value="";$("a-day").value=TODAY;$("dlg-add").showModal();};
 $("a-cancel").onclick=function(){$("dlg-add").close();};
@@ -344,11 +395,14 @@ $("e-del").onclick=function(){if(!confirm("「"+editing.name+"」を今月から
   save();$("dlg-edit").close();render();};
 
 function tplRow(t){return '<div class="tpl"><input value="'+esc(t.name)+'"><input type="number" inputmode="numeric" value="'+t.day+'"><input type="number" inputmode="numeric" value="'+t.amt+'"><input type="checkbox" '+(t.unsure?"checked":"")+'></div>';}
-$("btn-set").onclick=function(){$("s-target").value=S.target;$("s-start").value=ensure(YM).start==null?"":S.months[YM].start;
+$("btn-set").onclick=function(){var an=ensure(YM).anchor;$("s-bal").value=an?an.bal:"";$("s-bal-note").textContent=an?"入力した日："+(+YM.slice(5))+"/"+an.day+"（空にして保存すると、月初の残高からの計算に戻ります）":"";
+  $("s-target").value=S.target;$("s-start").value=ensure(YM).start==null?"":S.months[YM].start;
   $("s-tpl").innerHTML=S.tpl.map(tplRow).join("");$("s-gas").value=S.gas;$("s-token").value=S.token;$("dlg-set").showModal();};
 $("s-cancel").onclick=function(){$("dlg-set").close();};
 $("s-ok").onclick=function(){S.target=parseInt($("s-target").value,10)||0;
   var st=$("s-start").value;S.months[YM].start=st===""?null:parseInt(st,10);
+  var bv=$("s-bal").value,oa=S.months[YM].anchor;
+  if(bv==="")delete S.months[YM].anchor;else if(!oa||String(oa.bal)!==bv)S.months[YM].anchor={day:TODAY,bal:parseInt(bv,10)};   /* 値を変えたときだけ、今日の日付で入れ直す */
   var rows=$("s-tpl").querySelectorAll(".tpl");S.tpl=S.tpl.map(function(t,i){var f=rows[i].querySelectorAll("input");
     return Object.assign({},t,{name:f[0].value,day:parseInt(f[1].value,10)||t.day,amt:parseInt(f[2].value,10)||0,unsure:f[3].checked});});
   S.gas=$("s-gas").value.trim();S.token=$("s-token").value.trim();save();$("dlg-set").close();render();sync();};
