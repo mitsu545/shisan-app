@@ -2,843 +2,311 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover,maximum-scale=1.0,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="資産管理">
+<meta name="apple-mobile-web-app-title" content="預金">
 <link rel="apple-touch-icon" href="icon.png">
-<meta name="theme-color" content="#EDE9E0">
-<title>家計の現在地</title>
+<meta name="theme-color" content="#F1F0EC">
+<title>預金の予報</title>
 <style>
 :root{
-  /* 和モダン：生成りの紙に、藍・苔・弁柄・金の差し色 */
-  --paper:#EDE9E0; --card:#FBF9F4; --sunk:#F2EEE4; --line:#DDD6C8; --line2:#E7E1D5;
-  --ink:#23262B; --ink2:#6E675A; --ink3:#A39B8B;
-  --ai:#2F5D7C;        /* 藍：情報・主アクセント */
-  --moss:#4E7A5E;      /* 苔：健全・達成 */
-  --bengara:#B0533C;   /* 弁柄：警告・割れ */
-  --kin:#9E7E36;       /* 金：備蓄目標 */
-  --ai-bg:rgba(47,93,124,.08); --moss-bg:rgba(78,122,94,.1);
-  --bengara-bg:rgba(176,83,60,.1); --kin-bg:rgba(158,126,54,.1);
-  --num:"Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
-  --nav-h:60px; --r:16px;
+  --bg:#F1F0EC; --card:#FCFCFB; --line:#E3E1DA; --ink:#111; --ink2:#5A5852; --ink3:#8A8984;
+  --green:#0F5132; --green-bg:#E6F0EA; --red:#B3261E; --red-bg:#FFF3F0; --red-line:#F3CFC8;
+  --done:#E3E1DA; --fix:#D8E8FF; --fix-ink:#174A9C; --est:#FDE9C8; --est-ink:#8A5200;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html{-webkit-text-size-adjust:100%}
-body{
-  background:var(--paper); color:var(--ink);
-  font-family:-apple-system,"Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
-  line-height:1.6; -webkit-font-smoothing:antialiased;
-  padding-top:env(safe-area-inset-top);
-  padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 40px);
-}
-/* 数字は桁を揃える（家計簿らしさ） */
-.num{font-variant-numeric:tabular-nums lining-nums;font-feature-settings:"tnum" 1,"lnum" 1;letter-spacing:-.01em}
-.wrap{max-width:480px;margin:0 auto;padding:0 16px}
-.tab{display:none}
-.tab.act{display:block;animation:fade .3s ease}
-@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-
-/* ヘッダー */
-.head{padding:22px 0 8px}
-.head .eyebrow{font-size:11px;letter-spacing:.18em;color:var(--ink3);font-weight:700;text-transform:uppercase}
-.head h1{font-size:23px;font-weight:800;letter-spacing:.02em;margin-top:3px}
-.status{margin-top:14px;padding:13px 15px;border-radius:12px;background:var(--card);border:1px solid var(--line);
-  display:flex;align-items:center;gap:11px;font-size:13.5px;font-weight:600;line-height:1.45}
-.status .pip{width:9px;height:9px;border-radius:50%;flex-shrink:0;background:var(--moss)}
-.status.warn .pip{background:var(--kin)} .status.bad .pip{background:var(--bengara)}
-.status.warn{border-color:rgba(158,126,54,.35)} .status.bad{border-color:rgba(176,83,60,.35)}
-
-/* セクション見出し */
-.sec{margin:30px 0 13px;display:flex;align-items:baseline;gap:9px}
-.sec .lbl{font-size:12px;letter-spacing:.14em;color:var(--ink2);font-weight:700;text-transform:uppercase}
-.sec .sub{font-size:11.5px;color:var(--ink3)}
-.sec::before{content:"";width:18px;height:2px;background:var(--ai);border-radius:2px;align-self:center}
-
-details.tl-toggle summary::-webkit-details-marker { display: none; }
-details.tl-toggle summary { list-style: none; }
-details.tl-toggle .icon { margin-left: auto; color: var(--ink3); font-size: 10px; transition: transform 0.2s; }
-details.tl-toggle[open] .icon { transform: rotate(180deg); }
-
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px 16px;margin:11px 0}
-
-/* 資産サマリー */
-.total{text-align:center;padding:6px 0 2px}
-.total .cap{font-size:12px;color:var(--ink2);font-weight:600}
-.total .big{font-size:44px;font-weight:800;line-height:1.05;margin-top:4px}
-.total .yen{font-size:24px;font-weight:700;vertical-align:.06em;margin-right:1px}
-.total .of{font-size:12.5px;color:var(--ink3);margin-top:5px}
-
-.split{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}
-.cell{background:var(--sunk);border:1px solid var(--line2);border-radius:12px;padding:13px 12px}
-.cell .ct{font-size:11.5px;color:var(--ink2);font-weight:600;display:flex;align-items:center;gap:5px}
-.cell .ct i{width:7px;height:7px;border-radius:2px;display:inline-block}
-.cell .cv{font-size:21px;font-weight:800;margin-top:3px}
-.cell .cd{font-size:10.5px;color:var(--ink3);margin-top:2px}
-
-/* バー（目標到達度） */
-.bar{margin-top:11px}
-.bar .track{height:9px;border-radius:5px;background:var(--sunk);overflow:hidden;border:1px solid var(--line2)}
-.bar .fill{height:100%;border-radius:5px;transition:width .6s cubic-bezier(.2,.7,.3,1)}
-.bar .fill.kin{background:linear-gradient(90deg,#C0A055,var(--kin))}
-.bar .fill.ai{background:linear-gradient(90deg,#5A86A3,var(--ai))}
-.bar .lg{display:flex;justify-content:space-between;font-size:10.5px;color:var(--ink3);margin-top:6px;font-weight:600}
-
-/* 将来出費タイムライン */
-.tl-empty{text-align:center;padding:26px 18px;color:var(--ink3);font-size:13px;border:1px dashed var(--line);border-radius:var(--r);background:var(--card)}
-.tl-empty b{display:block;color:var(--ink2);font-size:14px;margin-bottom:4px;font-weight:700}
-.tl{position:relative;padding-left:26px}
-.tl::before{content:"";position:absolute;left:8px;top:6px;bottom:6px;width:2px;background:var(--line);border-radius:2px}
-.tl-item{position:relative;margin-bottom:13px}
-.tl-item::before{content:"";position:absolute;left:-22px;top:18px;width:11px;height:11px;border-radius:50%;
-  background:var(--card);border:2.5px solid var(--ai)}
-.tl-item.ok::before{border-color:var(--moss)} .tl-item.miss::before{border-color:var(--bengara)}
-.tl-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 15px}
-.tl-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
-.tl-when{font-size:12px;color:var(--ink2);font-weight:700}
-.tl-when .mo{font-size:10.5px;color:var(--ink3);font-weight:600;margin-left:5px}
-.tl-name{font-size:15px;font-weight:800;margin-top:4px}
-.tl-line{display:flex;align-items:baseline;gap:6px;margin-top:11px;padding-top:11px;border-top:1px solid var(--line2);
-  font-size:12px;color:var(--ink2)}
-.tl-line .eq{font-size:18px;font-weight:800;color:var(--ink)}
-.tl-line .eq.warn{color:var(--bengara)}
-.tl-pace{margin-top:9px;font-size:11.5px;color:var(--ink2);background:var(--sunk);border-radius:9px;padding:8px 11px;
-  display:flex;justify-content:space-between;align-items:center}
-.tl-pace b{color:var(--ai);font-weight:800;font-size:13px}
-
-/* 入力欄 */
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:13px}
-.fld label{display:block;font-size:11.5px;color:var(--ink2);margin-bottom:6px;font-weight:600}
-.fld .to{font-size:10px;color:var(--ai);margin-top:5px;font-weight:600;display:flex;align-items:center;gap:4px}
-.fld .to::before{content:"→";font-weight:800}
-input[type=number],input[type=month],input[type=text],input[type=url]{
-  width:100%;background:#fff;border:1.5px solid var(--line);border-radius:11px;color:var(--ink);
-  padding:13px 12px;font-size:16px;font-weight:600;font-family:var(--num);
-  font-variant-numeric:tabular-nums;transition:border-color .15s}
-input:focus{outline:none;border-color:var(--ai)}
-.full{grid-column:1/3}
-
-/* 着地ストリップ */
-.strip{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:16px;
-  padding:15px;border-radius:13px;background:var(--moss-bg);border:1px solid rgba(78,122,94,.22)}
-.strip.bad{background:var(--bengara-bg);border-color:rgba(176,83,60,.25)}
-.strip .k{font-size:12px;color:var(--ink2);font-weight:600;line-height:1.4}
-.strip .k small{display:block;font-size:10px;color:var(--ink3);font-weight:500;margin-top:2px}
-.strip .v{font-size:24px;font-weight:800;color:var(--moss);white-space:nowrap}
-.strip.bad .v{color:var(--bengara)}
-
-/* 着地2枚 */
-.land2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.land2 .lc{background:var(--sunk);border:1px solid var(--line2);border-radius:12px;padding:14px 12px;text-align:center}
-.land2 .lt{font-size:11px;color:var(--ink2);font-weight:600}
-.land2 .lv{font-size:25px;font-weight:800;margin-top:4px}
-.land2 .ld{font-size:10px;color:var(--ink3);margin-top:2px}
-.defense{margin-top:11px;padding:12px 14px;border-radius:12px;background:var(--ai-bg);border:1px solid rgba(47,93,124,.2);
-  display:flex;justify-content:space-between;align-items:center;gap:10px}
-.defense .dk{font-size:12px;color:var(--ink2);font-weight:600;line-height:1.4}
-.defense .dk small{display:block;font-size:10px;color:var(--ink3);font-weight:500;margin-top:2px}
-.defense .dv{font-size:20px;font-weight:800;color:var(--ai);white-space:nowrap}
-.defense.bad{background:var(--bengara-bg);border-color:rgba(176,83,60,.25)}
-.defense.bad .dv{color:var(--bengara)}
-
-/* 週次 */
-.howto{font-size:12.5px;color:var(--ink2);line-height:1.6;background:var(--ai-bg);border-radius:11px;padding:11px 13px;margin-bottom:13px}
-.howto b{color:var(--ai)}
-.week{border:1px solid var(--line2);border-radius:13px;padding:13px;margin-top:9px;background:var(--sunk);transition:.2s}
-.week.fixed{border-color:rgba(78,122,94,.35);background:var(--moss-bg)}
-.week.now{border-color:rgba(158,126,54,.45);background:var(--kin-bg)}
-.wk-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
-.wk-name{font-size:13.5px;font-weight:800;display:flex;gap:8px;align-items:center}
-.chip{font-size:10px;font-weight:700;padding:3px 9px;border-radius:99px;letter-spacing:.03em}
-.chip.pre{background:var(--card);color:var(--ink3);border:1px solid var(--line)}
-.chip.now{background:var(--kin-bg);color:var(--kin)}
-.chip.fx{background:var(--moss-bg);color:var(--moss)}
-.wk-body{display:flex;gap:10px;align-items:flex-end}
-.wk-body .fld{flex:1}
-.wk-btn{padding:13px 18px;border:1.5px solid var(--line);border-radius:11px;background:#fff;color:var(--ink2);
-  font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap;transition:.15s;font-family:inherit}
-.week.fixed .wk-btn{border-color:var(--moss);color:var(--moss)}
-.wk-delta{font-size:11px;color:var(--ink3);margin-top:8px;font-weight:600}
-.reso{margin-top:15px}
-.reso .track{height:6px;border-radius:3px;background:var(--sunk);border:1px solid var(--line2);overflow:hidden}
-.reso .f{height:100%;background:var(--moss);transition:width .5s;border-radius:3px}
-.reso .lg{display:flex;justify-content:space-between;font-size:11px;color:var(--ink3);margin-top:6px;font-weight:600}
-
-/* 月末 */
-.month-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px}
-.mbox{background:var(--sunk);border:1px solid var(--line2);border-radius:13px;padding:15px 13px}
-.mbox .t{font-size:11.5px;color:var(--ink2);font-weight:600;margin-bottom:5px}
-.mbox .n{font-size:23px;font-weight:800;color:var(--kin)}
-.mbox .d{font-size:10.5px;color:var(--ink3);margin-top:3px;line-height:1.4}
-.streak{display:flex;align-items:baseline;gap:9px}
-.streak .sn{font-size:32px;font-weight:800;color:var(--moss);line-height:1}
-.streak .sd{font-size:11px;color:var(--ink2);font-weight:600;line-height:1.4}
-
-.btn{width:100%;padding:15px;border:none;border-radius:13px;cursor:pointer;font-weight:800;font-size:15px;
-  font-family:inherit;letter-spacing:.02em;margin-top:14px;transition:transform .1s,opacity .15s}
-.btn:active{transform:scale(.985)}
-.btn.primary{background:var(--ai);color:#fff}
-.btn.move{background:var(--moss);color:#fff}
-.btn.kin{background:var(--kin);color:#fff}
-.btn.warn{background:var(--bengara);color:#fff}
-.btn.ghost{background:transparent;border:1.5px solid var(--line);color:var(--ink2)}
-.msg{font-size:12px;margin-top:9px;min-height:15px;font-weight:600;text-align:center}
-.msg.ok{color:var(--moss)} .msg.ng{color:var(--bengara)}
-
-/* 履歴 */
-.hist{margin-top:16px;border-top:1px solid var(--line2);padding-top:12px}
-.hr{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px dashed var(--line2);font-size:13px}
-.hr .hi{color:var(--ink2);font-weight:600}
-.hr .hi .ok{color:var(--moss)} .hr .hi .ng{color:var(--bengara)}
-.hr .num{color:var(--ink3);font-weight:600}
-.del{background:transparent;border:1px solid var(--line);color:var(--ink3);border-radius:7px;padding:5px 11px;
-  font-size:11px;cursor:pointer;font-family:inherit;font-weight:600}
-
-/* 将来出費 編集 */
-.goal{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px;margin-bottom:12px;position:relative}
-.goal .gtop{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:11px}
-.goal .grow{display:grid;grid-template-columns:1fr 1fr;gap:11px}
-.goal .grm{position:absolute;top:13px;right:13px;width:28px;height:28px;border:none;background:var(--sunk);
-  border-radius:8px;color:var(--ink3);font-size:17px;cursor:pointer;line-height:1;font-family:inherit}
-.goal .gname{font-size:16px;font-weight:800;padding:11px 12px}
-.add-goal{width:100%;padding:14px;border:1.5px dashed var(--ai);background:var(--ai-bg);color:var(--ai);
-  border-radius:13px;cursor:pointer;font-weight:800;font-size:14px;font-family:inherit}
-
-/* 入力→影響フロー */
-.flow{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:17px 15px;margin:11px 0}
-.flow .ft{font-size:13px;font-weight:800;margin-bottom:13px}
-.fstep{display:flex;gap:12px;align-items:flex-start;padding:9px 0;position:relative}
-.fstep:not(:last-child)::after{content:"absolute";left:13px;top:32px;bottom:-2px;width:2px;background:var(--line2)}
-.fstep .fn{width:26px;height:26px;border-radius:50%;background:var(--ai-bg);color:var(--ai);font-weight:800;
-  font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;z-index:1}
-.fstep .fc .fh{font-size:13.5px;font-weight:700;color:var(--ink)}
-.fstep .fc .fd{font-size:11.5px;color:var(--ink2);margin-top:1px;line-height:1.45}
-
-.bk-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:13px}
-.bk-st{font-size:12px;color:var(--ink3);display:flex;align-items:center;gap:8px;font-weight:600}
-.led{width:9px;height:9px;border-radius:50%;background:var(--line);flex-shrink:0}
-.led.ok{background:var(--moss)} .led.sv{background:var(--kin);animation:pulse 1s infinite} .led.ng{background:var(--bengara)}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
-.btn-sm{padding:10px 15px;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);
-  font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
-.hint{font-size:11px;color:var(--ink3);margin-top:6px;line-height:1.5}
-.note{font-size:11.5px;color:var(--ink3);margin-top:26px;border-top:1px solid var(--line2);padding-top:15px;line-height:1.7;text-align:center}
-
-/* ナビ */
-nav{position:fixed;left:0;right:0;bottom:0;z-index:50;background:rgba(237,233,224,.93);
-  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-top:1px solid var(--line);
-  padding-bottom:env(safe-area-inset-bottom)}
-.nav-in{max-width:480px;margin:0 auto;display:flex;height:var(--nav-h)}
-.nv{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;
-  border:none;background:transparent;color:var(--ink3);transition:color .2s;position:relative;font-family:inherit}
-.nv svg{width:22px;height:22px;stroke-width:1.8}
-.nv .t{font-size:10.5px;font-weight:700;letter-spacing:.04em}
-.nv.act{color:var(--ai)}
-.nv .dot{position:absolute;top:7px;right:calc(50% - 20px);width:7px;height:7px;border-radius:50%;
-  background:var(--bengara);opacity:0;transition:opacity .3s}
-.nv .dot.on{opacity:1}
+body{background:var(--bg);color:var(--ink);font-family:-apple-system,"Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  padding:max(16px,env(safe-area-inset-top)) 16px calc(96px + env(safe-area-inset-bottom));max-width:520px;margin:0 auto}
+.num{font-variant-numeric:tabular-nums;font-weight:700}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.top h1{font-size:20px}.top .sync{font-size:12px;color:var(--ink3)}
+.icon{background:none;border:1px solid var(--line);border-radius:12px;padding:8px 12px;font-size:15px;color:var(--ink)}
+.cap{font-size:14px;color:var(--ink2)}
+.hero{background:var(--green);color:#fff;border-radius:20px;padding:20px}
+.hero .cap{color:#CFE6DA}.hero.bad{background:var(--red)}.hero.bad .cap{color:#FAD9D4}
+.big{font-size:60px;letter-spacing:-1px;line-height:1.1;font-variant-numeric:tabular-nums;font-weight:700}
+.big small,.v small{font-size:20px;font-weight:400;margin-left:4px}
+.hero .note{font-size:13px;margin-top:6px;opacity:.9}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin-top:12px}
+.tile .v{font-size:40px;margin-top:2px}
+.tile.warn{background:var(--red-bg);border-color:var(--red-line)}
+.bar{height:10px;background:var(--line);border-radius:5px;margin-top:10px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--green);border-radius:5px}
+.bar.bad i{background:var(--red)}
+.mv{display:flex;justify-content:space-between;align-items:baseline;margin-top:4px;font-size:18px}
+.minus{color:var(--red)}.plus{color:var(--green)}
+.toggle{display:block;width:100%;background:none;border:none;color:var(--ink2);font-size:14px;padding:16px 0 8px}
+.it{display:flex;align-items:center;gap:6px;padding:12px 2px;border-bottom:1px solid var(--line);font-size:16px}
+.it .d{width:44px;color:var(--ink2);font-size:14px}.it .n{flex:1}.it .a{text-align:right;min-width:78px}
+.it .b{text-align:right;min-width:64px;color:var(--ink2);font-size:14px}
+.it.low{background:var(--red-bg)}.it.past{opacity:.55}
+.tag{font-size:11px;border-radius:8px;padding:2px 7px;margin-left:6px;white-space:nowrap}
+.t-done{background:var(--done);color:#555}.t-fix{background:var(--fix);color:var(--fix-ink)}.t-est{background:var(--est);color:var(--est-ink)}
+.chk{border:1px solid var(--line);background:#fff;border-radius:8px;font-size:12px;padding:3px 6px;color:var(--ink2)}
+.add{position:fixed;left:16px;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));max-width:488px;margin:0 auto;
+  background:#111;color:#fff;border:none;border-radius:16px;padding:16px;font-size:17px}
+.prompt{background:var(--est);color:var(--est-ink);border-radius:14px;padding:14px 16px;margin-bottom:12px;font-size:15px}
+.prompt input{width:100%;margin-top:8px}
+dialog{border:none;border-radius:20px;padding:20px;width:min(92vw,480px);margin:auto}
+dialog::backdrop{background:rgba(0,0,0,.35)}
+dialog h2{font-size:18px;margin-bottom:12px}
+label{display:block;font-size:13px;color:var(--ink2);margin:10px 0 4px}
+input,select{width:100%;font-size:17px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.btns{display:flex;gap:8px;margin-top:16px}.btns button{flex:1;padding:12px;border-radius:12px;font-size:16px;border:1px solid var(--line);background:#fff}
+.btns .ok{background:#111;color:#fff;border-color:#111}
+.tpl{display:grid;grid-template-columns:1.4fr .7fr 1.2fr .5fr;gap:6px;align-items:center;margin-top:6px}
+.tpl input{padding:8px;font-size:15px}.small{font-size:12px;color:var(--ink3);margin-top:6px}
+.sec{font-size:14px;font-weight:700;margin-top:18px}
 </style>
 </head>
 <body>
 
-<section class="tab act" id="tab-d">
-<div class="wrap">
-  <div class="head">
-    <div class="eyebrow">money cockpit</div>
-    <h1>家計の現在地</h1>
-    <div class="status" id="status"><span class="pip"></span><span id="status-tx">読み込み中…</span></div>
-  </div>
+<div class="top"><div><h1 id="ttl">今月</h1><div class="sync" id="sync"></div></div>
+  <button class="icon" id="btn-set" aria-label="設定">⚙ 設定</button></div>
 
-  <div class="sec"><span class="lbl">資産の現在地</span><span class="sub">備蓄＋流動</span></div>
-  <div class="card">
-    <div class="total">
-      <div class="cap">総預金（着地ベース）</div>
-      <div class="big num"><span class="yen">¥</span><span id="t-total">—</span></div>
-      <div class="of">目標 <span class="num">250</span>万（備蓄200＋流動50）まで <span id="t-rest" class="num">—</span></div>
-    </div>
-    <div class="split">
-      <div class="cell">
-        <div class="ct"><i style="background:var(--kin)"></i>備蓄バンク</div>
-        <div class="cv num" id="t-res">—</div>
-        <div class="cd">目標 200万</div>
-        <div class="bar"><div class="track"><div class="fill kin" id="bar-res" style="width:0%"></div></div>
-          <div class="lg"><span>0</span><span id="bar-res-pct">0%</span></div></div>
-      </div>
-      <div class="cell">
-        <div class="ct"><i style="background:var(--ai)"></i>流動（BASE）</div>
-        <div class="cv num" id="t-base">—</div>
-        <div class="cd">防衛ライン 50万</div>
-        <div class="bar"><div class="track"><div class="fill ai" id="bar-base" style="width:0%"></div></div>
-          <div class="lg"><span>0</span><span id="bar-base-pct">0%</span></div></div>
-      </div>
-    </div>
-  </div>
-
-  <details class="tl-toggle">
-    <summary class="sec" style="cursor:pointer; user-select:none; outline:none;">
-      <span class="lbl">これから要るお金</span><span class="sub">期限が近い順</span>
-      <span class="icon">▼</span>
-    </summary>
-    <div id="timeline"></div>
-  </details>
-
-  <div class="sec"><span class="lbl">流動の着地</span><span class="sub">週次入力から算出</span></div>
-  <div class="card">
-    <div class="land2">
-      <div class="lc"><div class="lt">今月末の着地</div><div class="lv num" id="m-this">—</div><div class="ld">設定の実額から</div></div>
-      <div class="lc"><div class="lt">来月末の予測</div><div class="lv num" id="m-next">—</div><div class="ld">給与−ザイム見込み</div></div>
-    </div>
-    <div class="defense" id="defense">
-      <span class="dk">今月の防衛ライン<small id="defense-sub">50万＋将来出費の積立</small></span>
-      <span class="dv num" id="defense-v">—</span>
-    </div>
-  </div>
-
-  <div class="sec"><span class="lbl">今週の入力</span><span class="sub">ザイム累計を確定</span></div>
-  <div class="card">
-    <div class="howto">来月末の着地 ＝ <b>今月の着地（<span class="num" id="carry">—</span>万）</b> ＋ 給与 − ザイム累計 ＋ <b>今月の貯金</b>。<br>毎週、月初からの<b>累計</b>を入れて「確定」を押すだけ。</div>
-    <div class="fld full" style="margin-bottom:13px">
-      <label>今月の貯金（千円）</label>
-      <input type="number" id="d-save" inputmode="numeric" placeholder="例：NISA・貯蓄に回した額">
-      <div class="to">ザイム支出から相殺 → 来月予測に＋</div>
-    </div>
-    <div id="weeks"></div>
-    <button class="btn ghost" id="wk-toggle" style="margin-top:11px;padding:11px;font-size:13px">過去・未来の週も表示</button>
-    <div class="reso">
-      <div class="track"><div class="f" id="reso-f" style="width:0%"></div></div>
-      <div class="lg"><span id="reso-t">確定 0/5 週</span><span id="reso-p" class="num">0%</span></div>
-    </div>
-  </div>
-
-  <div class="sec"><span class="lbl">月末の締め</span><span class="sub">余剰を備蓄へ</span></div>
-  <div class="card">
-    <div class="month-grid">
-      <div class="mbox">
-        <div class="t">今月の余剰</div>
-        <div class="n num" id="surplus">—</div>
-        <div class="d" id="surplus-d">防衛ラインを超えた分</div>
-      </div>
-      <div class="mbox">
-        <div class="t">達成ストリーク</div>
-        <div class="streak"><span class="sn num" id="streak">0</span><span class="sd">ヶ月連続<br>クリア</span></div>
-      </div>
-    </div>
-    <button class="btn move" id="b-move" style="display:none">余剰 <span class="num" id="move-amt"></span>万 を備蓄バンクへ移す</button>
-    <div class="msg" id="move-msg"></div>
-    <button class="btn kin" id="b-close">この月を締めて記録する</button>
-    <div class="msg" id="close-msg"></div>
-    <div class="hist" id="hist"></div>
-  </div>
-
-  <p class="note">流動50万を超えた余剰は、備蓄バンクへ移しましょう（アプリ上の移動と、実際の口座振替の両方を）。備蓄が200万に届いたら、将来の出費へ充てる計算です。</p>
+<div class="prompt" id="ask-start" hidden>
+  <div><b id="ask-month"></b>月初（1日）の口座残高を入れてください</div>
+  <input type="number" inputmode="numeric" id="in-start" placeholder="例：700000">
 </div>
-</section>
 
-<section class="tab" id="tab-s">
-<div class="wrap">
-  <div class="head">
-    <div class="eyebrow">settings</div>
-    <h1>入力と設定</h1>
-  </div>
+<div class="hero" id="hero"><div class="cap">今すぐ貯金に回せる</div>
+  <div class="big" id="avail">—<small>万円</small></div><div class="note" id="avail-note"></div></div>
 
-  <div class="flow">
-    <div class="ft">入力すると、どこに効くか</div>
-    <div class="fstep"><div class="fn">1</div><div class="fc"><div class="fh">BASE口座の実額</div><div class="fd">→ ダッシュボードの「今月末の着地」になる</div></div></div>
-    <div class="fstep"><div class="fn">2</div><div class="fc"><div class="fh">備蓄バンク残高</div><div class="fd">→ 「備蓄200万バー」と「総預金」に反映</div></div></div>
-    <div class="fstep"><div class="fn">3</div><div class="fc"><div class="fh">将来の出費</div><div class="fd">→ 「これから要るお金」タイムラインに並ぶ</div></div></div>
-    <div class="fstep"><div class="fn">4</div><div class="fc"><div class="fh">週次のザイム累計</div><div class="fd">→ 「来月末の予測」が更新される</div></div></div>
-  </div>
+<div class="tile"><div class="cap">今月末に残りそう</div>
+  <div class="v num" id="end">—<small>万円</small></div>
+  <div class="bar" id="end-bar"><i id="end-fill" style="width:0"></i></div>
+  <div class="cap" id="end-note" style="margin-top:6px"></div></div>
 
-  <div class="sec"><span class="lbl">① BASE口座の今月実額</span><span class="sub">千円単位</span></div>
-  <div class="card">
-    <div class="grid">
-      <div class="fld full"><label>口座残高</label><input type="number" id="d-bal" inputmode="numeric"><div class="to">今月の着地（メイン口座の今ある額）</div></div>
-      <div class="fld"><label>給与</label><input type="number" id="d-sal" inputmode="numeric"><div class="to">着地に＋／来月予測にも</div></div>
-      <div class="fld"><label>家賃</label><input type="number" id="d-rent" inputmode="numeric"><div class="to">着地から−</div></div>
-      <div class="fld"><label>iDeCo引落等</label><input type="number" id="d-ideco" inputmode="numeric"><div class="to">着地から−</div></div>
-      <div class="fld"><label>突発の引落</label><input type="number" id="d-top" inputmode="numeric"><div class="to">着地から−</div></div>
-      <div class="fld"><label>カード①</label><input type="number" id="d-c1" inputmode="numeric"><div class="to">着地から−</div></div>
-      <div class="fld"><label>カード②</label><input type="number" id="d-c2" inputmode="numeric"><div class="to">着地から−</div></div>
-      <div class="fld full"><label>精算等で戻る分</label><input type="number" id="d-seisan" inputmode="numeric"><div class="to">着地に＋（立替の戻りなど）</div></div>
-    </div>
-    <div class="strip" id="land-strip">
-      <span class="k">今月末の着地<small>残高＋給与＋精算 −（家賃＋iDeCo＋カード＋突発）</small></span>
-      <span class="v num" id="s-land">—</span>
-    </div>
-  </div>
+<div class="tile"><div class="cap">来月末に残りそう（ざっくり）</div>
+  <div class="v num" id="next">—<small>万円</small></div>
+  <div class="cap" id="next-note" style="margin-top:6px"></div></div>
 
-  <div class="sec"><span class="lbl">② 備蓄バンクの残高</span><span class="sub">貯蓄用口座</span></div>
-  <div class="card">
-    <div class="fld full"><label>備蓄バンク残高（千円）</label><input type="number" id="d-res" inputmode="numeric"><div class="to">備蓄200万バーと総預金に反映</div></div>
-  </div>
+<div class="tile warn" id="big-tile"><div class="cap">次に大きく動く日</div>
+  <div class="mv"><span id="big-name"></span><span class="num" id="big-amt"></span></div>
+  <div class="cap" id="big-note" style="margin-top:4px"></div></div>
 
-  <div class="sec"><span class="lbl">③ 将来の出費を登録</span><span class="sub">例：10月 家賃更新 5万</span></div>
-  <div id="goals"></div>
-  <button class="add-goal" id="add-goal">＋ 出費を追加（いつ・いくら）</button>
-  <p class="hint">登録すると、その月の必要ラインが「50万＋出費」にせり上がります。例：10月に5万なら、10月までに55万。<br>「確保済」を入れると、不足分と毎月の推奨積立を自動計算します。</p>
+<button class="toggle" id="btn-flow">▼ 今月の流れを見る</button>
+<div id="flow" hidden></div>
 
-  <div class="sec"><span class="lbl">スプレッドシート自動保存</span><span class="sub">任意</span></div>
-  <div class="card">
-    <div class="fld full"><label>GAS WebアプリURL</label><input type="url" id="d-gas" placeholder="https://script.google.com/macros/s/.../exec"></div>
-    <div class="bk-row">
-      <div class="bk-st"><span class="led" id="bk-led"></span><span id="bk-tx">未設定</span></div>
-      <button class="btn-sm" id="bk-btn">今すぐ送信</button>
-    </div>
-    <p class="hint">入力の1.5秒後に自動送信（履歴として追記）。iOSはしばらく開かないと保存データが消えることがあるので、保険になります。</p>
-  </div>
-</div>
-</section>
+<button class="add" id="btn-add">＋ 支出メモ・予定を追加</button>
 
-<nav><div class="nav-in">
-  <button class="nv act" id="nav-d">
-    <span class="dot" id="dot-d"></span>
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 13h4l3 7 4-16 3 9h4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    <span class="t">ダッシュボード</span>
-  </button>
-  <button class="nv" id="nav-s">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2" stroke-linecap="round"/></svg>
-    <span class="t">入力・設定</span>
-  </button>
-</div></nav>
+<!-- 追加 -->
+<dialog id="dlg-add"><h2>支出メモ・予定を追加</h2>
+  <label>種類</label>
+  <select id="a-kind">
+    <option value="card">カードで使った（来月の引き落としに足す）</option>
+    <option value="out">口座から出る（今月）</option>
+    <option value="in">口座に入る（今月）</option>
+  </select>
+  <label>名前</label><input id="a-name" placeholder="例：服、旅行の予約">
+  <div class="row"><div><label>日</label><input type="number" inputmode="numeric" id="a-day" min="1" max="31"></div>
+    <div><label>金額（円）</label><input type="number" inputmode="numeric" id="a-amt"></div></div>
+  <div class="btns"><button id="a-cancel">やめる</button><button class="ok" id="a-ok">追加</button></div>
+</dialog>
+
+<!-- 金額の修正 -->
+<dialog id="dlg-edit"><h2 id="e-ttl"></h2>
+  <div class="row"><div><label>日</label><input type="number" inputmode="numeric" id="e-day" min="1" max="31"></div>
+    <div><label>金額（円・出るお金はマイナス）</label><input type="number" inputmode="numeric" id="e-amt"></div></div>
+  <label>状態</label><select id="e-st"><option value="est">見込み</option><option value="fix">確定</option><option value="done">済（実際に動いた）</option></select>
+  <div class="btns"><button id="e-del">削除</button><button id="e-cancel">やめる</button><button class="ok" id="e-ok">保存</button></div>
+</dialog>
+
+<!-- 設定 -->
+<dialog id="dlg-set"><h2>設定</h2>
+  <label>残したい額（円）</label><input type="number" inputmode="numeric" id="s-target">
+  <label>今月の月初残高（円）</label><input type="number" inputmode="numeric" id="s-start">
+  <div class="sec">毎月の予定（翌月に自動でコピー）</div>
+  <div class="tpl cap"><span>名前</span><span>日</span><span>金額（出るのは−）</span><span>不確実</span></div>
+  <div id="s-tpl"></div>
+  <div class="small">「不確実」に✓した入金（精算など）は、実際に入るまで「今すぐ貯金に回せる額」に入れません。</div>
+  <div class="sec">メールから自動で取り込む（任意）</div>
+  <label>GAS WebアプリのURL</label><input type="url" id="s-gas" placeholder="https://script.google.com/macros/s/.../exec">
+  <label>合言葉（GASに設定したもの）</label><input id="s-token" autocomplete="off">
+  <div class="btns"><button id="s-sync">今すぐ取り込む</button><button id="s-backup">バックアップをコピー</button></div>
+  <div class="btns"><button id="s-cancel">閉じる</button><button class="ok" id="s-ok">保存</button></div>
+</dialog>
 
 <script>
 (function(){
 "use strict";
-
-/* ---------- 保存（iOS安全版） ---------- */
-var store=(function(){
-  var mem={},ok=false;
-  try{var k="__t";localStorage.setItem(k,"1");localStorage.removeItem(k);ok=true;}catch(e){}
-  return{
-    get:function(k){try{if(ok)return localStorage.getItem(k);}catch(e){}return(k in mem)?mem[k]:null;},
-    set:function(k,v){try{if(ok){localStorage.setItem(k,v);return;}}catch(e){}mem[k]=v;}
-  };
-})();
+/* ---------- 保存（端末の中だけ） ---------- */
+var KEY="yokin_v1";
+var store=(function(){var mem={},ok=false;try{localStorage.setItem("__t","1");localStorage.removeItem("__t");ok=true;}catch(e){}
+  return{get:function(k){try{if(ok)return localStorage.getItem(k);}catch(e){}return mem[k]||null;},
+         set:function(k,v){try{if(ok){localStorage.setItem(k,v);return;}}catch(e){}mem[k]=v;}};})();
 function $(id){return document.getElementById(id);}
-function man(yen){return(yen/10000).toFixed(1);}           // 円→万（小数1）
-function manInt(yen){return Math.round(yen/10000);}         // 円→万（整数）
-function fmtYen(yen){return Math.round(yen).toLocaleString("ja-JP");}
+function man(y){return (Math.round(y/1000)/10).toFixed(1);}          // 円→万（小数1）
+function m0(y){return String(+man(y));}             // 50.0→50
+function sman(y){return (y<0?"−":"+")+man(Math.abs(y))+"万";}
 function pad(n){return(n<10?"0":"")+n;}
+function ymOf(d){return d.getFullYear()+"-"+pad(d.getMonth()+1);}
+function addYm(ym,k){var p=ym.split("-"),d=new Date(+p[0],+p[1]-1+k,1);return ymOf(d);}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 
-/* ---------- 定数 ---------- */
-var LINE=500000;            // 流動の防衛ライン
-var RES_TARGET=2000000;     // 備蓄の目標
-var TOTAL_TARGET=2500000;   // 総預金の目標
+/* 毎月の予定のひな型（key は自動取り込みの照合に使う） */
+var DEFAULT_TPL=[
+  {key:"seisan",name:"精算（妻）",day:2, amt:114000, unsure:true},
+  {key:"rent",  name:"家賃",       day:10,amt:-115000},
+  {key:"salary",name:"給料",       day:15,amt:320000, adj:[{from:"2027-02",delta:-30000}]},
+  {key:"ideco", name:"iDeCo",      day:26,amt:-23000, until:"2027-01"},
+  {key:"card2", name:"カード②",    day:26,amt:-12000},
+  {key:"card1", name:"カード①",    day:27,amt:-240000}
+];
+/* メールの入出金を予定に当てはめるルール（日の幅・金額の幅） */
+var MATCH={seisan:{d:[1,6],min:50000,max:150000,dir:1},rent:{d:[8,12],min:100000,max:130000,dir:-1},
+  salary:{d:[12,16],min:280000,max:360000,dir:1},ideco:{d:[24,29],min:22000,max:24000,dir:-1},card2:{d:[25,29],min:1,max:100000,dir:-1},card1:{d:[26,30],min:1,max:9e9,dir:-1}};
 
-/* ---------- データ ---------- */
-var D={
-  bal:0,sal:0,rent:0,ideco:0,c1:0,c2:0,seisan:0,top:0,
-  savings:0,   // 今月の貯金（ザイム支出から相殺する額）
-  weeks:[wk(),wk(),wk(),wk(),wk()],
-  hist:[],streak:0,gas:"",lastBk:null,
-  reserve:0,
-  goals:[]   // {name, amt, saved, ym}
-};
-function wk(){return{fx:false,cum:null};}
+var SYNC_ERR="";
+var S={target:500000,tpl:DEFAULT_TPL,months:{},gas:"",token:"",feed:null,feedAt:null,used:{}};
+try{var raw=store.get(KEY);if(raw)S=Object.assign(S,JSON.parse(raw));}catch(e){}
+function save(){store.set(KEY,JSON.stringify(S));}
 
-function save(){store.set("cockpit_v6",JSON.stringify(D));}
-function load(){
-  var s=store.get("cockpit_v6")||store.get("cockpit50_v5")||store.get("cockpit50_v4")||store.get("cockpit50_v3")||store.get("cockpit50_v2")||store.get("cockpit50");
-  if(!s)return;
-  try{
-    var o=JSON.parse(s);
-    for(var k in o){if(o.hasOwnProperty(k))D[k]=o[k];}
-    if(!Array.isArray(D.weeks)||D.weeks.length!==5)D.weeks=[wk(),wk(),wk(),wk(),wk()];
-    if(!Array.isArray(D.hist))D.hist=[];
-    if(!Array.isArray(D.goals))D.goals=[];
-    if(typeof D.savings!=="number")D.savings=0;  // 後方互換
-    // 旧サブ口座 → 備蓄に合算（後方互換）
-    if(o.sub1||o.sub2){D.reserve=(o.sub1||0)+(o.sub2||0);delete D.sub1;delete D.sub2;}
-  }catch(e){}
+var NOW=new Date(), YM=ymOf(NOW), TODAY=NOW.getDate();
+
+/* ---------- 月のデータ ---------- */
+function usageOf(card,ym){var u=S.feed&&S.feed.usage&&S.feed.usage[card];return u&&u[ym]!=null?u[ym]:null;}
+function cardMemos(ym){var m=S.months[ym];return m?m.memos.filter(function(x){return x.kind==="card";}).reduce(function(s,x){return s+x.amt;},0):0;}
+/* カードの見込み額：先月の利用額（メール）があればそれ、なければひな型＋先月のカードメモ */
+function cardEst(t,ym){var prev=addYm(ym,-1),u=usageOf(t.key,prev);
+  if(u!=null)return -u; return t.amt-(t.key==="card1"?cardMemos(prev):0);}
+function tplAmt(t,ym){if(t.until&&ym>t.until)return null;if(t.from&&ym<t.from)return null;
+  var a=(t.key==="card1"||t.key==="card2")?cardEst(t,ym):t.amt;(t.adj||[]).forEach(function(x){if(ym>=x.from)a+=x.delta;});return a;}
+function ensure(ym){
+  if(S.months[ym])return S.months[ym];
+  var m={start:null,items:S.tpl.filter(function(t){return tplAmt(t,ym)!=null;}).map(function(t){return{id:uid(),key:t.key,name:t.name,day:t.day,
+    amt:tplAmt(t,ym),st:"est",unsure:!!t.unsure};}),memos:[]};
+  S.months[ym]=m;return m;}
+
+/* 今月の入出金を日付順に（口座が動くものだけ） */
+function events(ym){var m=ensure(ym);
+  var ev=m.items.map(function(i){return{ref:i,type:"item",day:i.day,name:i.name,amt:i.amt,st:i.st,unsure:i.unsure};});
+  m.memos.forEach(function(x){if(x.kind!=="card")ev.push({ref:x,type:"memo",day:x.day,name:x.name,amt:x.kind==="in"?x.amt:-x.amt,st:"fix",unsure:false});});
+  return ev.sort(function(a,b){return a.day-b.day||b.amt-a.amt;});}
+function startOf(ym){var m=ensure(ym);if(m.start!=null)return m.start;
+  var p=S.months[addYm(ym,-1)];return p?calc(addYm(ym,-1)).end:null;}
+
+function calc(ym){
+  var ev=events(ym),start=startOf(ym),cur=ym===YM,today=cur?TODAY:0;
+  if(start==null)return{ev:ev,start:null};
+  var end=start,bal=start,safe=start,pending=0,lowDay=null,low=Infinity;
+  ev.forEach(function(e){end+=e.amt;e.after=end;});
+  /* 今日まで：起きたとみなす（不確実な入金は「済」になるまで数えない） */
+  ev.forEach(function(e){if(e.day<=today){if(e.unsure&&e.st!=="done"&&e.amt>0){pending+=e.amt;return;}safe+=e.amt;}});
+  var minSafe=safe;
+  ev.forEach(function(e){if(e.day>today){if(e.unsure&&e.st!=="done"&&e.amt>0){pending+=e.amt;return;}safe+=e.amt;}
+    if(e.day>today&&safe<minSafe)minSafe=safe;});
+  ev.forEach(function(e){if(e.day>=today&&e.after<low){low=e.after;lowDay=e;}});
+  return{ev:ev,start:start,end:end,minSafe:minSafe,pending:pending,low:lowDay};}
+
+function nextEnd(){var c=calc(YM);if(c.start==null)return null;var n=addYm(YM,1),sum=0;
+  S.tpl.forEach(function(t){var a=tplAmt(t,n);if(a!=null)sum+=a;});
+  var nm=S.months[n];if(nm)nm.memos.forEach(function(x){if(x.kind!=="card")sum+=x.kind==="in"?x.amt:-x.amt;});
+  return c.end+sum;}
+
+/* ---------- メールからの取り込み（GAS） ---------- */
+function applyFeed(){var f=S.feed;if(!f)return;
+  Object.keys(S.months).forEach(function(ym){var m=S.months[ym];
+    (f.bills||[]).forEach(function(b){if(b.due.slice(0,7)!==ym)return;
+      m.items.forEach(function(i){if(i.key===b.card&&i.st!=="done"){i.amt=-b.amount;i.day=+b.due.slice(8,10);i.st="fix";}});});
+    (f.moves||[]).forEach(function(mv){if(S.used[mv.id]||mv.date.slice(0,7)!==ym)return;var d=+mv.date.slice(8,10);
+      var hit=m.items.filter(function(i){var r=MATCH[i.key];if(!r||i.st==="done"||r.dir!==mv.dir||d<r.d[0]||d>r.d[1]||mv.amount<r.min||mv.amount>r.max)return false;
+        if(i.st==="fix"&&(i.key==="card1"||i.key==="card2"))return mv.amount===-i.amt;return true;})[0];
+      if(hit){hit.amt=mv.dir*mv.amount;hit.day=d;hit.st="done";S.used[mv.id]=1;}});});
+  /* 今月のカードの見込みを、先月の利用額で更新 */
+  var m=ensure(YM);m.items.forEach(function(i){if((i.key==="card1"||i.key==="card2")&&i.st==="est"){var t=S.tpl.filter(function(x){return x.key===i.key;})[0];if(t)i.amt=cardEst(t,YM);}});
+  save();}
+function unmatched(){var f=S.feed;if(!f)return[];return(f.moves||[]).filter(function(mv){return !S.used[mv.id]&&mv.date.slice(0,7)===YM;});}
+function sync(){if(!S.gas){$("sync").textContent="";return;}
+  $("sync").textContent="メールから取り込み中…";
+  fetch(S.gas+(S.gas.indexOf("?")<0?"?":"&")+"token="+encodeURIComponent(S.token||""))
+    .then(function(r){return r.json();}).then(function(j){if(j.error)throw new Error(j.error);
+      SYNC_ERR="";S.feed=j;S.feedAt=new Date().toISOString();applyFeed();render();})
+    .catch(function(e){SYNC_ERR="メールの取り込みに失敗："+e.message;$("sync").textContent=SYNC_ERR;});}
+
+/* ---------- 画面 ---------- */
+function tag(st){return st==="done"?'<span class="tag t-done">済</span>':st==="fix"?'<span class="tag t-fix">確定</span>':'<span class="tag t-est">見込み</span>';}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+function render(){
+  var mo=+YM.slice(5);$("ttl").textContent=mo+"月の予報";
+  $("sync").textContent=SYNC_ERR||(S.feedAt?"メール取り込み："+new Date(S.feedAt).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}):"");
+  var c=calc(YM);
+  $("ask-start").hidden=c.start!=null;$("ask-month").textContent=mo;
+  if(c.start==null){["avail","end","next"].forEach(function(id){$(id).innerHTML='—<small>万円</small>';});
+    $("avail-note").textContent="月初の残高を入れると計算します";$("big-tile").hidden=true;$("flow").innerHTML="";return;}
+  var av=c.minSafe-S.target;
+  $("hero").className="hero"+(av<0?" bad":"");
+  $("avail").innerHTML=man(Math.max(0,av))+"<small>万円</small>";
+  $("avail-note").textContent=av<0?"残したい額 "+m0(S.target)+"万まで、あと"+man(-av)+"万足りません"
+    :"残したい額 "+m0(S.target)+"万を守れます"+(c.pending>0?"（精算が入ったら +"+man(c.pending)+"万）":"");
+  $("end").innerHTML=man(c.end)+"<small>万円</small>";
+  var diff=c.end-S.target;$("end-bar").className="bar"+(diff<0?" bad":"");
+  $("end-fill").style.width=Math.max(4,Math.min(100,c.end/(S.target*1.6)*100))+"%";
+  $("end-note").textContent="残したい額 "+m0(S.target)+"万 "+(diff<0?"− ":"＋ ")+man(Math.abs(diff))+"万";
+  var nx=nextEnd(),nm=S.months[YM].memos.filter(function(x){return x.kind==="card";}).length;
+  $("next").innerHTML=(nx==null?"—":"約"+Math.round(nx/10000))+"<small>万円</small>";
+  $("next-note").textContent="毎月の予定"+(nm?"＋カードの支出メモ "+nm+"件":"")+"から計算";
+  var big=c.ev.filter(function(e){return e.day>=TODAY&&e.st!=="done"&&Math.abs(e.amt)>=50000;})[0];
+  $("big-tile").hidden=!big;
+  if(big){$("big-name").textContent=mo+"/"+big.day+" "+big.name;$("big-amt").textContent=sman(big.amt);
+    $("big-amt").className="num "+(big.amt<0?"minus":"plus");
+    $("big-note").textContent="このあと残高は "+man(big.after)+"万"+(c.low===big?"（今月いちばん少ない）":"");}
+  $("btn-flow").textContent=($("flow").hidden?"▼":"▲")+" 今月の流れを見る（"+c.ev.length+"件）";
+  var h='<div class="it"><span class="d">'+mo+'/1</span><span class="n">月初の残高</span><span class="b num">'+man(c.start)+'万</span></div>';
+  c.ev.forEach(function(e,ix){h+='<div class="it'+(e===c.low?" low":"")+(e.day<TODAY&&e.st==="done"?" past":"")+'" data-ix="'+ix+'">'+
+    '<span class="d">'+mo+'/'+e.day+'</span><span class="n">'+esc(e.name)+tag(e.st)+'</span>'+
+    '<span class="a num '+(e.amt<0?"minus":"plus")+'">'+sman(e.amt)+'</span><span class="b num">'+man(e.after)+'万</span></div>';});
+  var um=unmatched();if(um.length){h+='<div class="sec">メールで見つかった、予定にない入出金</div>';
+    um.forEach(function(mv,k){h+='<div class="it"><span class="d">'+mo+'/'+(+mv.date.slice(8,10))+'</span><span class="n">'+(mv.dir>0?"入金":"出金")+'</span><span class="a num '+(mv.dir<0?"minus":"plus")+'">'+sman(mv.dir*mv.amount)+'</span><button class="chk" data-um="'+k+'">追加</button></div>';});}
+  var cm=S.months[YM].memos.filter(function(x){return x.kind==="card";});
+  if(cm.length){h+='<div class="sec">カードの支出メモ（来月の引き落としに反映）</div>';
+    cm.forEach(function(x){h+='<div class="it"><span class="d">'+mo+'/'+x.day+'</span><span class="n">'+esc(x.name)+'</span><span class="a num minus">'+sman(-x.amt)+'</span><button class="chk" data-delmemo="'+x.id+'">削除</button></div>';});}
+  $("flow").innerHTML=h;
+  $("flow").querySelectorAll("[data-ix]").forEach(function(el){el.onclick=function(){openEdit(c.ev[+el.dataset.ix]);};});
+  $("flow").querySelectorAll("[data-um]").forEach(function(el){el.onclick=function(ev){ev.stopPropagation();var mv=um[+el.dataset.um];
+    S.months[YM].items.push({id:uid(),key:"",name:mv.dir>0?"その他の入金":"その他の出金",day:+mv.date.slice(8,10),amt:mv.dir*mv.amount,st:"done"});
+    S.used[mv.id]=1;save();render();};});
+  $("flow").querySelectorAll("[data-delmemo]").forEach(function(el){el.onclick=function(){var m=S.months[YM];
+    m.memos=m.memos.filter(function(x){return x.id!==el.dataset.delmemo;});save();render();};});
 }
 
-/* ---------- 計算 ---------- */
-// 今月末の着地（流動）
-function thisLanding(){return D.bal+D.sal+D.seisan-(D.rent+D.ideco+D.c1+D.c2+D.top);}
+/* ---------- 操作 ---------- */
+$("in-start").addEventListener("change",function(){var v=parseInt(this.value,10);if(isNaN(v))return;ensure(YM).start=v;save();render();});
+$("btn-flow").onclick=function(){$("flow").hidden=!$("flow").hidden;render();};
+$("btn-add").onclick=function(){$("a-name").value="";$("a-amt").value="";$("a-day").value=TODAY;$("dlg-add").showModal();};
+$("a-cancel").onclick=function(){$("dlg-add").close();};
+$("a-ok").onclick=function(){var amt=Math.abs(parseInt($("a-amt").value,10)),day=parseInt($("a-day").value,10);
+  if(!amt||!day){alert("日と金額を入れてください");return;}
+  ensure(YM).memos.push({id:uid(),kind:$("a-kind").value,name:$("a-name").value||"支出メモ",day:Math.min(31,Math.max(1,day)),amt:amt});
+  save();$("dlg-add").close();render();};
+var editing=null;
+function openEdit(e){editing=e;$("e-ttl").textContent=e.name;$("e-day").value=e.day;$("e-amt").value=e.amt;
+  $("e-st").value=e.st;$("e-st").disabled=e.type==="memo";$("dlg-edit").showModal();}
+$("e-cancel").onclick=function(){$("dlg-edit").close();};
+$("e-ok").onclick=function(){var r=editing.ref,amt=parseInt($("e-amt").value,10),day=parseInt($("e-day").value,10);
+  if(isNaN(amt)||!day)return;r.day=day;
+  if(editing.type==="memo"){r.amt=Math.abs(amt);r.kind=amt<0?"out":"in";}else{r.amt=amt;r.st=$("e-st").value;}
+  save();$("dlg-edit").close();render();};
+$("e-del").onclick=function(){if(!confirm("「"+editing.name+"」を今月から消しますか？"))return;var m=S.months[YM];
+  m.items=m.items.filter(function(i){return i!==editing.ref;});m.memos=m.memos.filter(function(x){return x!==editing.ref;});
+  save();$("dlg-edit").close();render();};
 
-// 期限（YYYY-MM）まであと何ヶ月か（最低1）
-function monthsTo(ym){
-  if(!ym)return 1;
-  var now=new Date(),t=new Date(ym+"-01");
-  var m=(t.getFullYear()-now.getFullYear())*12+(t.getMonth()-now.getMonth());
-  return m>0?m:1;
-}
-// goalの不足額
-function shortage(g){return Math.max(0,(g.amt||0)-(g.saved||0));}
-// 全goalの「毎月の推奨積立」合計（順調ペースを保つ額）
-function monthlyReserveNeed(){
-  var sum=0;
-  D.goals.forEach(function(g){var s=shortage(g);if(s>0)sum+=s/monthsTo(g.ym);});
-  return sum;
-}
-// 来月のTarget（50万＋今月ぶんの推奨積立）
-function nextTarget(){return LINE+monthlyReserveNeed();}
+function tplRow(t){return '<div class="tpl"><input value="'+esc(t.name)+'"><input type="number" inputmode="numeric" value="'+t.day+'"><input type="number" inputmode="numeric" value="'+t.amt+'"><input type="checkbox" '+(t.unsure?"checked":"")+'></div>';}
+$("btn-set").onclick=function(){$("s-target").value=S.target;$("s-start").value=ensure(YM).start==null?"":S.months[YM].start;
+  $("s-tpl").innerHTML=S.tpl.map(tplRow).join("");$("s-gas").value=S.gas;$("s-token").value=S.token;$("dlg-set").showModal();};
+$("s-cancel").onclick=function(){$("dlg-set").close();};
+$("s-ok").onclick=function(){S.target=parseInt($("s-target").value,10)||0;
+  var st=$("s-start").value;S.months[YM].start=st===""?null:parseInt(st,10);
+  var rows=$("s-tpl").querySelectorAll(".tpl");S.tpl=S.tpl.map(function(t,i){var f=rows[i].querySelectorAll("input");
+    return Object.assign({},t,{name:f[0].value,day:parseInt(f[1].value,10)||t.day,amt:parseInt(f[2].value,10)||0,unsure:f[3].checked});});
+  S.gas=$("s-gas").value.trim();S.token=$("s-token").value.trim();save();$("dlg-set").close();render();sync();};
+$("s-sync").onclick=function(){S.gas=$("s-gas").value.trim();S.token=$("s-token").value.trim();save();sync();};
+$("s-backup").onclick=function(){var t=JSON.stringify(S);
+  (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){alert("コピーしました。メモ帳などに貼って保存してください。");},function(){prompt("これをコピーして保存してください",t);});};
 
-// 週次：確定済みの数と最後の確定週
-function fixedCount(){var n=0;for(var i=0;i<5;i++){if(D.weeks[i].fx&&D.weeks[i].cum!=null)n++;}return n;}
-function lastFixed(){var k=-1;for(var i=0;i<5;i++){if(D.weeks[i].fx&&D.weeks[i].cum!=null)k=i;}return k;}
-// 実データ（2年分・29ヶ月）から算出した「月内の累積消化率」＝投資・貯蓄込み全支出
-// 安全側に設定：平均より低めの消化率（下位25%目安）を採用し、支出を多めに見積もる
-// 消化率が低いほど「月末まで支出が伸びる」想定になり、来月予測が厳しめ＝安全になる
-var WEEKLY_RATE=[0.66,0.74,0.85,0.93,1.0];
-var ZAIM_AVG=295000; // 確定前の仮置き：月支出の上位25%（多めに見積もって安全側）
-
-// ザイム着地見込み：今の累計 ÷ その週の消化率（月初集中で暴走しない）
-function projZaim(){
-  var k=lastFixed();
-  if(k<0)return ZAIM_AVG;                // まだ確定なし→月平均27万
-  return D.weeks[k].cum/WEEKLY_RATE[k];  // 累計÷消化率＝月末予測
-}
-// 実質支出見込み：ザイム見込みから「今月の貯金」を相殺（貯金は消えず資産に残るため）
-function effectiveZaim(){return Math.max(0,projZaim()-(D.savings||0));}
-function cumAt(i){
-  if(i<0)return 0;
-  var k=lastFixed();
-  if(k>=0&&i<=k){                        // 確定済みの週はその実数を返す
-    if(D.weeks[i].fx&&D.weeks[i].cum!=null)return D.weeks[i].cum;
-    var j=i;while(j>=0&&!(D.weeks[j].fx&&D.weeks[j].cum!=null))j--;
-    return j>=0?D.weeks[j].cum:0;
-  }
-  return projZaim()*WEEKLY_RATE[i];       // 未確定の週：月末予測×その週の消化率
-}
-// 来月末の予測：今月着地＋給与−（ザイム見込み−今月の貯金）
-function nextLanding(){return thisLanding()+D.sal-effectiveZaim();}
-
-/* ---------- タブ ---------- */
-var TABS=["d","s"],wkOpen=false;
-function showTab(t){
-  TABS.forEach(function(x){
-    $("tab-"+x).className="tab"+(x===t?" act":"");
-    $("nav-"+x).className="nv"+(x===t?" act":"");
-  });
-  try{window.scrollTo(0,0);}catch(e){}
-}
-TABS.forEach(function(t){$("nav-"+t).addEventListener("click",function(){showTab(t);});});
-
-/* ---------- 描画：トップ状態 ---------- */
-function renderStatus(){
-  var tL=thisLanding(),el=$("status"),tx=$("status-tx");
-  var st="",cls="";
-  if(tL<LINE){cls="bad";st="流動が防衛ライン50万を下回っています（"+man(tL)+"万）。引き締めを。";}
-  else if(nextLanding()<nextTarget()){cls="warn";st="今のペースだと来月の目標に少し届きません。";}
-  else{cls="";st="順調です。流動50万を守れています。";}
-  el.className="status"+(cls?" "+cls:"");
-  tx.textContent=st;
-  $("dot-d").className="dot"+(tL<LINE?" on":"");
-}
-
-/* ---------- 描画：資産サマリー ---------- */
-function renderAssets(){
-  var base=thisLanding(),res=D.reserve||0,total=base+res;
-  $("t-total").textContent=fmtYen(total);
-  $("t-base").textContent=man(base)+"万";
-  $("t-res").textContent=man(res)+"万";
-
-  var rest=Math.max(0,TOTAL_TARGET-total);
-  $("t-rest").textContent="あと"+man(rest)+"万";
-
-  var rp=Math.min(100,res/RES_TARGET*100);
-  $("bar-res").style.width=rp+"%";
-  $("bar-res-pct").textContent=Math.round(rp)+"%";
-
-  var bp=Math.min(100,base/LINE*100);
-  $("bar-base").style.width=bp+"%";
-  $("bar-base").className="fill "+(base>=LINE?"ai":"")+(base<LINE?"":"");
-  $("bar-base-pct").textContent=Math.round(bp)+"%";
-}
-
-/* ---------- 描画：将来出費タイムライン ---------- */
-function renderTimeline(){
-  var host=$("timeline");
-  var live=D.goals.filter(function(g){return g.ym&&shortage(g)>0;});
-  if(live.length===0){
-    host.innerHTML='<div class="tl-empty"><b>予定された出費はありません</b>「入力・設定」で、いつ・いくら必要かを登録できます</div>';
-    return;
-  }
-  // 期限が近い順
-  live.sort(function(a,b){return a.ym<b.ym?-1:(a.ym>b.ym?1:0);});
-
-  var html='<div class="tl">';
-  live.forEach(function(g){
-    var m=monthsTo(g.ym),sh=shortage(g),req=sh/m;
-    var lineNeed=LINE+(g.amt||0);                 // その月の必要ライン
-    var urgent=(m<=1);                             // 今月〜来月に迫っている＝急ぎ
-    var ym=g.ym.split("-"),when=ym[0]+"年"+parseInt(ym[1],10)+"月";
-    var cls=urgent?"miss":"";                       // 迫っていれば弁柄、通常は藍
-
-    var parts=[];
-    parts.push('<div class="tl-item '+cls+'">');
-    parts.push('<div class="tl-card">');
-    parts.push('<div class="tl-top"><span class="tl-when num">'+when+'<span class="mo">あと'+m+'ヶ月</span></span></div>');
-    parts.push('<div class="tl-name">'+esc(g.name||"出費")+'</div>');
-    parts.push('<div class="tl-line">この月の必要ライン <span class="eq num'+(urgent?' warn':'')+'">'+man(lineNeed)+'万</span><span style="color:var(--ink3)">＝ 50万＋'+man(g.amt||0)+'万</span></div>');
-    parts.push('<div class="tl-pace"><span>不足 '+man(sh)+'万 → 毎月の推奨積立</span><b class="num">'+fmtYen(req)+'円/月</b></div>');
-    parts.push('</div></div>');
-    html+=parts.join("");
-  });
-  html+='</div>';
-  host.innerHTML=html;
-}
-function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
-
-/* ---------- 描画：着地2枚 ---------- */
-function renderLanding(){
-  var tL=thisLanding(),nL=nextLanding(),tgt=nextTarget();
-  $("m-this").textContent=man(tL)+"万";
-  $("m-this").style.color=tL>=LINE?"var(--ink)":"var(--bengara)";
-  $("m-next").textContent=man(nL)+"万";
-  $("m-next").style.color=nL>=tgt?"var(--moss)":(nL>=LINE?"var(--kin)":"var(--bengara)");
-  $("carry").textContent=man(tL);
-  // 今月の防衛ライン ＝ 50万 ＋ 将来出費の積立合計
-  var pool=monthlyReserveNeed();
-  $("defense-v").textContent=man(tgt)+"万";
-  $("defense-sub").textContent="50万 ＋ 将来出費の積立 "+man(pool)+"万";
-  $("defense").className="defense"+(tL<tgt?" bad":"");
-}
-
-/* ---------- 描画：週次 ---------- */
-function buildWeeks(){
-  var h="";
-  for(var i=0;i<5;i++){
-    h+='<div class="week" id="wk'+i+'">'
-      +'<div class="wk-top"><span class="wk-name">Week '+(i+1)+' <span class="chip pre" id="chip'+i+'">予測</span></span></div>'
-      +'<div class="wk-body"><div class="fld"><label>ザイム累計（千円）</label>'
-      +'<input type="number" id="cum'+i+'" inputmode="numeric" placeholder="累計"></div>'
-      +'<button class="wk-btn" id="fx'+i+'">確定</button></div>'
-      +'<div class="wk-delta" id="dl'+i+'"></div></div>';
-  }
-  $("weeks").innerHTML=h;
-  for(var j=0;j<5;j++)wireWeek(j);
-}
-function wireWeek(i){
-  $("cum"+i).addEventListener("input",function(){var n=parseFloat(this.value);D.weeks[i].cum=isNaN(n)?null:n*1000;onChange();});
-  $("fx"+i).addEventListener("click",function(){D.weeks[i].fx=!D.weeks[i].fx;onChange();});
-}
-function renderWeeks(){
-  var fc=fixedCount(),show=fc<5?fc:4;
-  for(var i=0;i<5;i++){
-    var w=D.weeks[i],row=$("wk"+i),chip=$("chip"+i),btn=$("fx"+i),dl=$("dl"+i);
-    var fx=w.fx&&w.cum!=null,isNow=(!fx&&i===fc);
-    row.style.display=(wkOpen||i===show)?"block":"none";
-    row.className="week"+(fx?" fixed":"")+(isNow?" now":"");
-    chip.className="chip "+(fx?"fx":(isNow?"now":"pre"));
-    chip.textContent=fx?"確定":(isNow?"今ここ":"予測");
-    btn.textContent=fx?"解除":"確定";
-    $("cum"+i).placeholder=Math.round(cumAt(i)/1000).toLocaleString("ja-JP");
-    var inc=(fx?w.cum:cumAt(i))-cumAt(i-1);
-    dl.textContent=(fx?"増分 ":"予測増分 ")+(inc>=0?"+":"")+fmtYen(inc/1000)+"千円";
-  }
-  $("reso-f").style.width=(fc/5*100)+"%";
-  $("reso-t").textContent="確定 "+fc+"/5 週";
-  $("reso-p").textContent=Math.round(fc/5*100)+"%";
-}
-
-/* ---------- 描画：月末 ---------- */
-function renderMonth(){
-  var tL=thisLanding(),tgt=nextTarget(),sur=tL-tgt;
-  $("surplus").textContent=(sur>=0?"+":"−")+man(Math.abs(sur))+"万";
-  $("surplus").style.color=sur>=0?"var(--kin)":"var(--bengara)";
-  $("surplus-d").textContent="防衛ライン"+man(tgt)+"万を超えた分";
-  $("streak").textContent=D.streak;
-  if(sur>0){$("b-move").style.display="block";$("move-amt").textContent=man(sur);}
-  else $("b-move").style.display="none";
-}
-function calcStreak(){
-  var s=0;
-  for(var i=0;i<D.hist.length;i++){if(D.hist[i].ok)s++;else break;}
-  D.streak=s;
-}
-function closeMonth(){
-  var t=thisLanding(),tgt=nextTarget(),ok=t>=tgt;
-  var now=new Date(),ym=now.getFullYear()+"/"+pad(now.getMonth()+1);
-  if(D.hist.length>0&&D.hist[0].ym===ym){
-    D.hist[0].land=t;D.hist[0].ok=ok;
-    $("close-msg").textContent=ym+" を上書き（着地 "+man(t)+"万）";
-  }else{
-    D.hist.unshift({ym:ym,land:t,ok:ok});
-    if(D.hist.length>12)D.hist.length=12;
-    $("close-msg").textContent=ym+" を記録（着地 "+man(t)+"万）";
-  }
-  calcStreak();$("close-msg").className="msg ok";onChange();
-}
-function renderHist(){
-  var h="";
-  for(var i=0;i<D.hist.length;i++){
-    var r=D.hist[i];
-    h+='<div class="hr"><span class="hi"><span class="'+(r.ok?"ok":"ng")+'">'+(r.ok?"達成":"割れ")+'</span> '+r.ym
-      +' ・着地 <span class="num">'+man(r.land)+'万</span></span>'
-      +'<button class="del" data-i="'+i+'">取消</button></div>';
-  }
-  $("hist").innerHTML=h;
-  var b=$("hist").querySelectorAll(".del");
-  for(var j=0;j<b.length;j++){
-    b[j].addEventListener("click",function(){
-      D.hist.splice(parseInt(this.getAttribute("data-i"),10),1);
-      calcStreak();$("close-msg").textContent="記録を取り消しました";$("close-msg").className="msg ok";onChange();
-    });
-  }
-}
-
-/* ---------- 描画：将来出費 編集 ---------- */
-function renderGoals(){
-  var host=$("goals");host.innerHTML="";
-  if(D.goals.length===0){
-    host.innerHTML='<div class="tl-empty" style="margin-bottom:12px"><b>まだ登録がありません</b>下のボタンから追加できます</div>';
-    return;
-  }
-  D.goals.forEach(function(g,idx){
-    var m=monthsTo(g.ym),sh=shortage(g),req=sh/m;
-    var div=document.createElement("div");
-    div.className="goal";
-    var h=[];
-    h.push('<button class="grm" data-rm="'+idx+'">×</button>');
-    h.push('<input type="text" class="gname full" data-nm="'+idx+'" value="'+esc(g.name||"")+'" placeholder="用途（例：家賃更新）" style="margin-bottom:11px;width:calc(100% - 36px)">');
-    h.push('<div class="gtop">');
-    h.push('<div class="fld"><label>いつまで</label><input type="month" data-ym="'+idx+'" value="'+(g.ym||"")+'"></div>');
-    h.push('<div class="fld"><label>必要額（千円）</label><input type="number" inputmode="numeric" data-amt="'+idx+'" value="'+((g.amt||0)/1000)+'"></div>');
-    h.push('</div>');
-    h.push('<div class="grow">');
-    h.push('<div class="fld"><label>確保済（千円）</label><input type="number" inputmode="numeric" data-sv="'+idx+'" value="'+((g.saved||0)/1000)+'"></div>');
-    h.push('<div class="fld"><label>推奨積立</label><div style="padding:13px 12px;background:var(--sunk);border:1.5px solid var(--line2);border-radius:11px;font-weight:800;color:var(--ai)" class="num" data-pace="'+idx+'">'+fmtYen(req)+'円/月</div></div>');
-    h.push('</div>');
-    div.innerHTML=h.join("");
-    host.appendChild(div);
-  });
-  bindGoals();
-}
-function bindGoals(){
-  var host=$("goals");
-  // 名前・期限の変更（確定時）→ カードを作り直してOK（フォーカスは既に外れている）
-  bindEach(host,"[data-nm]","change",function(el,i){D.goals[i].name=el.value;fullRender();});
-  bindEach(host,"[data-ym]","change",function(el,i){D.goals[i].ym=el.value;fullRender();});
-  // 金額の入力中 → カードは作り直さない。推奨積立の数字だけ更新（カクつき防止）
-  bindEach(host,"[data-amt]","input",function(el,i){var n=parseFloat(el.value);D.goals[i].amt=isNaN(n)?0:n*1000;updatePace(i);lightRender();});
-  bindEach(host,"[data-sv]","input",function(el,i){var n=parseFloat(el.value);D.goals[i].saved=isNaN(n)?0:n*1000;updatePace(i);lightRender();});
-  bindEach(host,"[data-rm]","click",function(el,i){D.goals.splice(i,1);fullRender();});
-}
-// 1枚のカードの「推奨積立」だけを直接書き換える（DOM全体は触らない）
-function updatePace(i){
-  var g=D.goals[i];if(!g)return;
-  var req=shortage(g)/monthsTo(g.ym);
-  var el=$("goals").querySelector('[data-pace="'+i+'"]');
-  if(el)el.textContent=fmtYen(req)+"円/月";
-}
-function bindEach(host,sel,ev,fn){
-  var nodes=host.querySelectorAll(sel);
-  for(var k=0;k<nodes.length;k++){
-    (function(node){
-      var attr=sel.replace(/[\[\]]/g,"").split("=")[0];
-      var i=parseInt(node.getAttribute(attr),10);
-      node.addEventListener(ev,function(){fn(node,i);});
-    })(nodes[k]);
-  }
-}
-
-/* ---------- 設定側の着地表示 ---------- */
-function renderSettingsLand(){
-  var tL=thisLanding();
-  $("s-land").textContent=man(tL)+"万";
-  $("land-strip").className="strip"+(tL<LINE?" bad":"");
-}
-
-/* ---------- まとめて再描画 ---------- */
-function renderAll(){
-  renderStatus();renderAssets();renderTimeline();renderLanding();
-  renderWeeks();renderMonth();renderHist();renderSettingsLand();
-}
-
-/* ---------- バックアップ ---------- */
-var bkT=null;
-function bkSet(s,t){var l=$("bk-led");l.className="led "+(s||"");if(t)$("bk-tx").textContent=t;}
-function bkSend(){
-  if(!D.gas){bkSet("","未設定");return;}
-  bkSet("sv","送信中…");
-  try{
-    fetch(D.gas,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},
-      body:JSON.stringify({type:"cockpit_v6",at:new Date().toISOString(),data:D})})
-    .then(function(){D.lastBk=Date.now();save();var d=new Date(D.lastBk);bkSet("ok","送信済 "+pad(d.getHours())+":"+pad(d.getMinutes()));})
-    .catch(function(){bkSet("ng","送信失敗（URL確認）");});
-  }catch(e){bkSet("ng","送信失敗");}
-}
-
-/* ---------- 変更フック ---------- */
-function gasTimer(){if(D.gas){if(bkT)clearTimeout(bkT);bkT=setTimeout(bkSend,1500);}}
-// 軽い再描画：将来出費カードは作り直さない（入力中のフォーカス／カーソルを守る）
-function lightRender(){save();renderAll();gasTimer();}
-// 重い再描画：将来出費カードも作り直す（追加・削除・名前/期限の変更時のみ）
-function fullRender(){save();renderGoals();renderAll();gasTimer();}
-function onChange(){fullRender();}
-
-/* ---------- 入力配線 ---------- */
-var MAP=[["d-bal","bal"],["d-sal","sal"],["d-rent","rent"],["d-ideco","ideco"],
-  ["d-c1","c1"],["d-c2","c2"],["d-seisan","seisan"],["d-top","top"],["d-res","reserve"],
-  ["d-save","savings"]];
-var closeArmed=false;
-
-function wire(){
-  $("wk-toggle").addEventListener("click",function(){
-    wkOpen=!wkOpen;this.textContent=wkOpen?"今週ぶんだけ表示":"過去・未来の週も表示";renderWeeks();
-  });
-  MAP.forEach(function(p){
-    var el=$(p[0]);if(!el)return;
-    el.addEventListener("input",function(){var n=parseFloat(this.value);D[p[1]]=isNaN(n)?0:n*1000;lightRender();});
-  });
-  $("d-gas").addEventListener("input",function(){D.gas=this.value.trim();save();bkSet("",D.gas?"待機中":"未設定");});
-  $("bk-btn").addEventListener("click",bkSend);
-
-  // 余剰を備蓄へ移動
-  $("b-move").addEventListener("click",function(){
-    var sur=thisLanding()-nextTarget();
-    if(sur<=0)return;
-    D.bal-=sur;D.reserve+=sur;
-    $("d-bal").value=Math.round(D.bal/1000);
-    $("d-res").value=Math.round(D.reserve/1000);
-    var m=$("move-msg");
-    m.textContent="備蓄バンクへ "+man(sur)+"万 移しました。実際の口座振替もお忘れなく。";
-    m.className="msg ok";
-    setTimeout(function(){m.textContent="";},4000);
-    onChange();
-  });
-
-  // 月締め（2タップ確認）
-  $("b-close").addEventListener("click",function(){
-    var self=this;
-    if(!closeArmed){
-      closeArmed=true;self.textContent="もう一度タップで確定";self.className="btn warn";
-      setTimeout(function(){closeArmed=false;self.textContent="この月を締めて記録する";self.className="btn kin";},4000);
-      return;
-    }
-    closeArmed=false;self.textContent="この月を締めて記録する";self.className="btn kin";closeMonth();
-  });
-
-  // 出費を追加
-  $("add-goal").addEventListener("click",function(){
-    var ny=new Date().getFullYear();
-    var nm=new Date().getMonth()+2;if(nm>12){nm=1;ny++;}
-    D.goals.push({name:"",amt:50000,saved:0,ym:ny+"-"+pad(nm)});
-    onChange();showTab("s");
-  });
-}
-function fill(){
-  MAP.forEach(function(p){var el=$(p[0]);if(el)el.value=Math.round((D[p[1]]||0)/1000)||"";});
-  $("d-gas").value=D.gas||"";
-  for(var i=0;i<5;i++){if(D.weeks[i].cum!=null)$("cum"+i).value=Math.round(D.weeks[i].cum/1000);}
-}
-
-/* ---------- 起動 ---------- */
-function init(){
-  try{
-    load();buildWeeks();fill();renderGoals();wire();
-    bkSet("",D.gas?"待機中":"未設定");
-    if(D.lastBk){var d=new Date(D.lastBk);bkSet("ok","送信済 "+pad(d.getHours())+":"+pad(d.getMinutes()));}
-    renderAll();
-  }catch(e){
-    // 起動失敗時も最低限の状態表示
-    try{$("status-tx").textContent="表示の準備中に問題が起きました。再読み込みしてください。";}catch(_){}
-  }
-}
-if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init);
-else init();
+ensure(YM);save();render();sync();
 })();
 </script>
 </body>
