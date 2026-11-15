@@ -59,6 +59,18 @@ input,select{width:100%;font-size:17px;padding:10px 12px;border:1px solid var(--
 .tpl{display:grid;grid-template-columns:1.4fr .7fr 1.2fr .5fr;gap:6px;align-items:center;margin-top:6px}
 .tpl input{padding:8px;font-size:15px}.small{font-size:12px;color:var(--ink3);margin-top:6px}
 .sec{font-size:14px;font-weight:700;margin-top:18px}
+.tabs{display:flex;gap:6px;background:#E8E6E0;border-radius:12px;padding:4px;margin-bottom:12px}
+.tabs button{flex:1;border:none;background:none;border-radius:9px;padding:9px;font-size:15px;color:var(--ink2)}
+.tabs button.on{background:var(--card);color:var(--ink);font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+textarea{width:100%;font-size:15px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-family:inherit}
+.legend{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:var(--ink2);margin-top:6px}
+.legend i{display:inline-block;width:12px;height:10px;margin-right:4px;vertical-align:-1px;border-radius:2px}
+.lg-goal{height:2px!important;background:var(--ink);vertical-align:3px!important}.lg-ok{background:var(--green)}.lg-ng{background:var(--red)}
+.lg-est{background:var(--green-bg);border:1px dashed var(--green)}
+.pt{width:100%;border-collapse:collapse;font-size:14px;margin-top:6px}
+.pt th{font-weight:400;color:var(--ink2);font-size:12px;text-align:right;padding:4px 2px}.pt th:first-child,.pt td:first-child{text-align:left}
+.pt td{text-align:right;padding:7px 2px;border-top:1px solid var(--line);font-variant-numeric:tabular-nums}
+.pt tr.cur td{background:var(--green-bg);font-weight:700}
 input[type=range]{width:100%;padding:0;margin-top:10px;accent-color:var(--green)}
 .rg{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;color:var(--ink2)}.rg b{font-size:16px;color:var(--ink)}
 details{margin-top:8px}summary{font-size:14px;color:var(--ink2);cursor:pointer;padding:6px 0;list-style:none}
@@ -72,9 +84,13 @@ summary::-webkit-details-marker{display:none}summary::after{content:" ▼";font-
 <div class="top"><div><h1 id="ttl">今月</h1><div class="sync" id="sync"></div></div>
   <button class="icon" id="btn-set" aria-label="設定">⚙ 設定</button></div>
 
+<div class="tabs"><button id="tab-y" class="on">今月の予報</button><button id="tab-p">預金の進捗</button></div>
+
+<div id="pane-y">
 <div class="prompt" id="ask-start" hidden>
   <div><b id="ask-month"></b>月初（1日）の口座残高を入れてください</div>
   <input type="number" inputmode="numeric" id="in-start" placeholder="例：700000">
+  <div class="small" id="ask-carry" style="color:var(--est-ink)"></div>
 </div>
 
 <div class="hero" id="hero"><div class="cap">今すぐ貯金に回せる</div>
@@ -90,10 +106,13 @@ summary::-webkit-details-marker{display:none}summary::after{content:" ▼";font-
   <details id="next-det"><summary id="next-sum">内訳とカードの支出</summary><div id="next-note"></div></details></div>
 
 <div class="tile" id="save-tile">
-  <div class="cap" id="save-head">支出を抑えた場合</div>
-  <div class="cap" style="margin-top:10px">Zaimの「貯金」（固定費）を</div>
-  <div class="v num" id="save-amt">—<small>円</small></div>
-  <div class="cap" id="save-diff" style="margin-top:2px"></div>
+  <div class="cap" id="save-head"></div>
+  <div id="save-ok">
+    <div class="cap" style="margin-top:10px">Zaimの「貯金」（固定費）を</div>
+    <div class="v num" id="save-amt">—<small>円</small></div>
+    <div class="cap" id="save-diff" style="margin-top:2px"></div>
+  </div>
+  <div id="save-ng" hidden></div>
   <div id="cap-box" hidden>
     <div class="cap" style="margin-top:16px">支出（今月のカード利用の合計）の上限</div>
     <input type="range" id="cap-range" step="10000">
@@ -105,6 +124,20 @@ summary::-webkit-details-marker{display:none}summary::after{content:" ▼";font-
 
 <button class="toggle" id="btn-flow">▼ 今月の流れを見る</button>
 <div id="flow" hidden></div>
+</div>
+
+<div id="pane-p" hidden>
+<div class="tile"><div class="cap">いまの預金（楽天＋SBI）</div>
+  <div class="v num" id="p-now">—<small>万円</small></div>
+  <div class="cap" id="p-break"></div>
+  <div class="cap" id="p-vs" style="margin-top:6px"></div>
+  <div class="bar"><i id="p-fill" style="width:0"></i></div>
+  <div class="cap" id="p-goal" style="margin-top:6px"></div></div>
+<div class="tile"><div class="cap">月ごとの預金と目標</div>
+  <div id="p-chart"></div>
+  <div class="legend"><span><i class="lg-goal"></i>目標</span><span><i class="lg-ok"></i>実績</span><span><i class="lg-ng"></i>実績（目標未達）</span><span><i class="lg-est"></i>見込み</span></div></div>
+<div class="tile"><div class="cap">月ごとの数字（万円）</div><div id="p-table"></div></div>
+</div>
 
 <button class="add" id="btn-add">＋ 支出メモ・予定を追加</button>
 
@@ -134,6 +167,11 @@ summary::-webkit-details-marker{display:none}summary::after{content:" ▼";font-
 <dialog id="dlg-set"><h2>設定</h2>
   <label>残したい額（円）</label><input type="number" inputmode="numeric" id="s-target">
   <label>Zaimの「貯金」（固定費）に今入れている金額（円）</label><input type="number" inputmode="numeric" id="s-zai" placeholder="例：45000">
+  <div class="sec">預金の進捗</div>
+  <label>SBI（貯金用）の残高（円）　変わったときだけ入れ直す</label><input type="number" inputmode="numeric" id="s-sbi">
+  <label>月ごとの目標（貼り付け。1行に「2026-11 236」のように 年-月 と 万円）</label><textarea id="s-goals" rows="5" placeholder="2026-11 236&#10;2026-12 240"></textarea>
+  <div class="small" id="s-goals-note"></div>
+  <div class="sec">今月の残高</div>
   <label>今月の月初残高（円）</label><input type="number" inputmode="numeric" id="s-start">
   <label>今日の残高（円）　口座を見て入れると、ここから先を計算し直します</label><input type="number" inputmode="numeric" id="s-bal" placeholder="空欄＝月初の残高から計算">
   <div class="small" id="s-bal-note"></div>
@@ -179,7 +217,7 @@ var MATCH={seisan:{d:[1,11],min:30000,max:200000,dir:1},rent:{d:[8,12],min:10000
   salary:{d:[12,16],min:280000,max:360000,dir:1},ideco:{d:[24,29],min:22000,max:24000,dir:-1},card2:{d:[25,29],min:1,max:100000,dir:-1},card1:{d:[26,30],min:1,max:9e9,dir:-1}};
 
 var SYNC_ERR="";
-var S={target:500000,zaiSave:45000,tpl:DEFAULT_TPL,months:{},gas:"",token:"",feed:null,feedAt:null,used:{}};
+var S={target:500000,zaiSave:45000,sbi:0,goals:{},hist:{},tab:"y",tpl:DEFAULT_TPL,months:{},gas:"",token:"",feed:null,feedAt:null,used:{}};
 try{var raw=store.get(KEY);if(raw)S=Object.assign(S,JSON.parse(raw));}catch(e){}
 function save(){store.set(KEY,JSON.stringify(S));}
 
@@ -246,11 +284,17 @@ function calc(ym){
   var live=ev.filter(function(e){return e.day>after;});
   /* 今日まで：起きたとみなす（不確実な入金は「済」になるまで数えない） */
   live.forEach(function(e){if(e.day<=today){if(e.unsure&&e.st!=="done"&&e.amt>0){pending+=e.amt;return;}safe+=e.amt;}});
+  var todayBal=safe;   /* 今日時点の残高（入金待ちは含めない） */
   var minSafe=safe;
   live.forEach(function(e){if(e.day>today){if(e.unsure&&e.st!=="done"&&e.amt>0){pending+=e.amt;return;}safe+=e.amt;}
     if(e.day>today&&safe<minSafe)minSafe=safe;});
   live.forEach(function(e){if(e.day>=today&&e.after<low){low=e.after;lowDay=e;}});
-  return{ev:ev,start:start!=null?start:base,end:end,minSafe:minSafe,pending:pending,low:lowDay,an:an};}
+  return{ev:ev,start:start!=null?start:base,end:end,minSafe:minSafe,pending:pending,low:lowDay,an:an,todayBal:todayBal};}
+/* 月初の残高を入れたら、前の月を自動で締める（前の月の結果＝この残高＋SBI） */
+function setStart(ym,v){ensure(ym).start=v;if(v!=null)S.hist[addYm(ym,-1)]={main:v,sbi:S.sbi||0};}
+/* 新しい月を開いたら、前の月を見込みで仮に締める（月初の残高を入れると、実際の額で上書き） */
+function autoClose(){var prev=addYm(YM,-1);if(!S.months[prev]||S.hist[prev])return;var c=calc(prev);
+  if(c.start!=null)S.hist[prev]={main:c.end,sbi:S.sbi||0,est:true};}
 
 function nextEnd(cap){var c=calc(YM);if(c.start==null)return null;var n=addYm(YM,1),tot=0,up=0,dn=0,parts=[],sumEst=0,sumDone=0;
   var P={card1:projUsage("card1",YM),card2:projUsage("card2",YM)};
@@ -297,35 +341,103 @@ function tag(e){
   return '<span class="tag t-est">見込み</span>';}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
 function yen(n){return Math.round(n).toLocaleString("ja-JP");}
+function whyLines(ad){return '<div class="ds">今月：いちばん少ない日の残高 − 残したい額 '+m0(S.target)+'万 ＝ '+(ad.now<0?"−":"")+man(Math.abs(ad.now))+'万</div>'
+  +'<div class="ds">来月末（やや悪い側 '+man(ad.nx.base)+'万）− 残したい額 ＝ '+(ad.next<0?"−":"")+man(Math.abs(ad.next))+'万</div>'
+  +'<div class="ds">この2つの少ないほうが、今月の貯金の上限です（1,000円未満は切り捨て）。精算など入金待ちの分は数えていません。来月の貯金は含めていません。</div>';}
 function renderSave(mcap){
-  var ad=advice(mcap!=null?mcap:null),box=$("cap-box");if(!ad){$("save-tile").hidden=true;return;}$("save-tile").hidden=false;
-  var nx=ad.nx,pace=nx.cardEst,done=nx.cardDone,lo=Math.ceil(done/10000)*10000,hi=Math.max(lo+10000,Math.round(pace*1.5/10000)*10000);
+  var p0=advice(null);if(!p0){$("save-tile").hidden=true;return;}$("save-tile").hidden=false;
+  var pace=p0.nx.cardEst,done=p0.nx.cardDone,cur=S.zaiSave||0;
+  /* ① 今月が残したい額に届かないとき：必要な額を出す（スライダーは出さない） */
+  if(p0.now<0){
+    $("save-head").textContent="今月は、残したい額 "+m0(S.target)+"万に届きません";
+    $("save-ok").hidden=true;$("cap-box").hidden=true;$("save-ng").hidden=false;
+    var need=-p0.next,room=pace>0?Math.max(0,pace-done):0;
+    var nt=need<=0?"届く見込み":(need<=room?"カード利用をあと "+man(need)+"万 抑えると届く":"あと "+man(need-room)+"万円（これ以上カードを使わなくても）");
+    $("save-ng").innerHTML='<div class="cap" style="margin-top:10px">'+m0(S.target)+'万にするために必要な額</div>'
+      +'<div class="dr"><span>今月</span><span class="num minus">あと '+man(-p0.now)+'万円</span></div>'
+      +'<div class="dr"><span>来月末</span><span class="num">'+nt+'</span></div>'
+      +'<div class="ds" style="margin-top:10px">Zaimの「貯金」（固定費）：今の '+yen(cur)+'円 → 今月は入れない（0円）</div>'
+      +'<div class="ds">※ 今月の不足は、カード利用を抑えても変わりません（引き落としは来月だから）</div>';
+    $("save-why").innerHTML=whyLines(p0);return;}
+  /* ② 超えているとき：抑えた場合に、Zaimの貯金をいくらにできるか */
+  $("save-ok").hidden=false;$("save-ng").hidden=true;
+  var lo=Math.ceil(done/10000)*10000,hi=Math.max(lo+10000,Math.round(pace*1.5/10000)*10000);
   var v=mcap!=null?mcap:pace;v=Math.max(lo,Math.min(hi,v));
-  $("save-head").textContent=pace>0?"支出を "+man(v)+"万 に抑えた場合":"支出（カード利用）の見込みがまだありません";
-  var cur=S.zaiSave||0;
-  $("save-amt").innerHTML=yen(ad.amt)+"<small>円 にする</small>";
-  var diff=ad.amt-cur;
-  $("save-diff").textContent="今のZaimの設定 "+yen(cur)+"円 → "+(diff===0?"そのまま":(diff>0?"＋":"−")+yen(Math.abs(diff))+"円")+(ad.amt===0?"（今月は貯金に回せません）":"");
-  var lines=[];
-  lines.push('<div class="ds">今月：いちばん少ない日の残高 − 残したい額 '+m0(S.target)+'万 ＝ '+(ad.now<0?"−":"")+man(Math.abs(ad.now))+'万</div>');
-  lines.push('<div class="ds">来月末（やや悪い側 '+man(nx.base)+'万）− 残したい額 ＝ '+(ad.next<0?"−":"")+man(Math.abs(ad.next))+'万</div>');
-  lines.push('<div class="ds">この2つの少ないほうが、今月の貯金の上限です（1,000円未満は切り捨て）。精算など入金待ちの分は数えていません。来月の貯金は含めていません。</div>');
-  $("save-why").innerHTML=lines.join("");
-  box.hidden=!(pace>0);
-  if(pace>0){var r=$("cap-range");
-    r.min=lo;r.max=hi;r.value=v;
+  var ad=advice(pace>0?v:null);
+  $("save-head").textContent=pace>0?"支出を "+man(v)+"万 に抑えた場合":"今月の支出（カード利用）の見込みがまだありません";
+  $("save-amt").innerHTML=yen(ad.amt)+"<small>円 にできる</small>";
+  var diff=ad.amt-cur,extra="";
+  if(ad.amt===0&&ad.next<0){var more=-ad.next;extra=more<=Math.max(0,v-done)?"。来月末が足りないため、カード利用をあと "+man(more)+"万 抑えると貯金できます":"。来月末が足りないため、これ以上抑えても貯金できません";}
+  $("save-diff").textContent="今のZaimの設定 "+yen(cur)+"円 → "+(diff===0?"そのまま":(diff>0?"＋":"−")+yen(Math.abs(diff))+"円")+extra;
+  $("save-why").innerHTML=whyLines(ad);
+  $("cap-box").hidden=!(pace>0);
+  if(pace>0){var r=$("cap-range");r.min=lo;r.max=hi;r.value=v;
     $("cap-lo").textContent=man(lo)+"万（いま使った額）";$("cap-hi").textContent=man(hi)+"万";
-    $("cap-now").textContent=man(v)+"万";
-    var d=pace-v;
+    $("cap-now").textContent=man(v)+"万";var d=pace-v;
     $("cap-note").textContent="いまのペースは 約"+man(pace)+"万"+(d>0?"（約"+man(d)+"万 抑える想定）":d<0?"（約"+man(-d)+"万 多く使う想定）":"");}}
+
+/* ---------- 預金の進捗（楽天＋SBI と、月ごとの目標） ---------- */
+function parseGoals(t){var g={};String(t).split(/\n/).forEach(function(l){var m=l.match(/(\d{4})\s*[-\/年.]\s*(\d{1,2})\D+?([\d,]+(?:\.\d+)?)/);if(!m)return;
+  var v=parseFloat(m[3].replace(/,/g,""));if(v<100000)v=v*10000;g[m[1]+"-"+pad(+m[2])]=Math.round(v);});return g;}
+function goalsText(){return Object.keys(S.goals||{}).sort().map(function(k){return k+" "+(S.goals[k]/10000);}).join("\n");}
+function goalsNote(){var k=Object.keys(S.goals||{}).sort();$("s-goals-note").textContent=k.length?"読み込み済み："+k.length+"か月（"+k[0]+"〜"+k[k.length-1]+"）":"";}
+function ymLabel(ym,first){var y=+ym.slice(2,4),m=+ym.slice(5);return(m===1||first)?y+"/"+m:String(m);}
+function progressRows(){
+  var keys=Object.keys(S.goals||{}).sort(),from=keys.length?(keys[0]<YM?keys[0]:YM):YM,to=keys.length?keys[keys.length-1]:addYm(YM,1);
+  if(to<addYm(YM,1))to=addYm(YM,1);
+  var c=calc(YM),sbi=S.sbi||0,mcap=S.months[YM]&&S.months[YM].cap,rows=[];
+  for(var ym=from;ym<=to;ym=addYm(ym,1)){var r={ym:ym,goal:S.goals[ym]!=null?S.goals[ym]:null,kind:"future",val:null};
+    if(ym<YM){var h=S.hist[ym];if(h){r.kind="done";r.val=h.main+h.sbi;r.est=!!h.est;}}
+    else if(ym===YM&&c.start!=null){r.kind="cur";r.val=c.end+sbi;r.now=c.todayBal+sbi;}
+    else if(ym===addYm(YM,1)&&c.start!=null){var nx=nextEnd(mcap!=null?mcap:null);r.kind="next";r.val=nx.est+sbi;r.lo=nx.lo+sbi;r.hi=nx.hi+sbi;}
+    rows.push(r);}
+  return rows;}
+function chartSvg(rows){
+  var W=340,H=210,L=40,B=26,T=12,n=rows.length,sw=(W-L-6)/n,bw=Math.max(6,Math.min(16,sw*0.62)),vals=[];
+  rows.forEach(function(r){[r.goal,r.val,r.lo,r.hi,r.now].forEach(function(v){if(v!=null)vals.push(v);});});
+  if(!vals.length)return'<div class="ds" style="padding:20px 0">月初の残高と、⚙設定の目標を入れるとグラフが出ます</div>';
+  var mn=Math.min.apply(null,vals),mx=Math.max.apply(null,vals),step=[100000,200000,500000,1000000].filter(function(v){return v>=(mx-mn)/4;})[0]||1000000;
+  var y0=Math.max(0,Math.floor((mn-step)/step)*step),y1=Math.ceil((mx+step*0.5)/step)*step;
+  function y(v){return T+(H-T-B)*(1-(v-y0)/(y1-y0));}
+  var g='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block;margin-top:8px" role="img" aria-label="月ごとの預金と目標">';
+  for(var t=y0;t<=y1;t+=step){g+='<line x1="'+L+'" x2="'+(W-4)+'" y1="'+y(t)+'" y2="'+y(t)+'" style="stroke:var(--line);stroke-width:1"/>'
+    +'<text x="'+(L-4)+'" y="'+(y(t)+4)+'" text-anchor="end" style="font-size:10px;fill:var(--ink3)">'+Math.round(t/10000)+'万</text>';}
+  rows.forEach(function(r,i){var x=L+sw*i+sw/2,base=y(y0);
+    if(r.val!=null){var top=y(r.val),h=Math.max(1,base-top),ok=r.goal==null||r.val>=r.goal;
+      if(r.kind==="done")g+='<rect x="'+(x-bw/2)+'" y="'+top+'" width="'+bw+'" height="'+h+'" rx="3" style="fill:var(--'+(ok?"green":"red")+')"/>';
+      else g+='<rect x="'+(x-bw/2+0.75)+'" y="'+top+'" width="'+(bw-1.5)+'" height="'+(h-0.75)+'" rx="3" style="fill:var(--green-bg);stroke:var(--green);stroke-width:1.5;stroke-dasharray:3 2"/>';}
+    if(r.lo!=null)g+='<line x1="'+x+'" x2="'+x+'" y1="'+y(r.hi)+'" y2="'+y(r.lo)+'" style="stroke:var(--green);stroke-width:1.5"/>'
+      +'<line x1="'+(x-4)+'" x2="'+(x+4)+'" y1="'+y(r.hi)+'" y2="'+y(r.hi)+'" style="stroke:var(--green);stroke-width:1.5"/><line x1="'+(x-4)+'" x2="'+(x+4)+'" y1="'+y(r.lo)+'" y2="'+y(r.lo)+'" style="stroke:var(--green);stroke-width:1.5"/>';
+    if(r.now!=null)g+='<circle cx="'+x+'" cy="'+y(r.now)+'" r="4.5" style="fill:var(--green);stroke:var(--card);stroke-width:2"/>';
+    if(r.goal!=null)g+='<line x1="'+(x-sw*0.45)+'" x2="'+(x+sw*0.45)+'" y1="'+y(r.goal)+'" y2="'+y(r.goal)+'" style="stroke:var(--ink);stroke-width:2"/>';
+    g+='<text x="'+x+'" y="'+(H-8)+'" text-anchor="middle" style="font-size:10px;fill:var(--'+(r.ym===YM?"ink":"ink2")+');font-weight:'+(r.ym===YM?700:400)+'">'+ymLabel(r.ym,i===0)+'</text>';});
+  return g+'</svg><div class="ds" style="margin-top:4px">縦軸は '+Math.round(y0/10000)+'万から。● はいま（今日の時点）、点線の棒は月末の見込み、来月の縦線はふれ幅</div>';}
+function renderProgress(){
+  var rows=progressRows(),c=calc(YM),sbi=S.sbi||0,keys=Object.keys(S.goals||{}).sort(),last=keys.length?keys[keys.length-1]:null;
+  if(c.start==null){$("p-now").innerHTML='—<small>万円</small>';$("p-break").textContent="「今月の予報」で月初の残高を入れると計算します";}
+  else{var now=c.todayBal+sbi,cur=rows.filter(function(r){return r.ym===YM;})[0];
+    $("p-now").innerHTML=man(now)+"<small>万円</small>";
+    $("p-break").textContent="楽天 "+man(c.todayBal)+"万（今日の時点）＋ SBI "+man(sbi)+"万"+(sbi?"":"（⚙設定で入力）");
+    $("p-vs").textContent=cur&&cur.goal!=null?"今月末の見込み "+man(cur.val)+"万 ／ 今月の目標 "+m0(cur.goal)+"万（"+(cur.val>=cur.goal?"＋":"−")+man(Math.abs(cur.val-cur.goal))+"万）":"今月の目標は、⚙設定の「月ごとの目標」に貼り付けると出ます";
+    if(last){var lg=S.goals[last],pc=Math.max(0,Math.min(100,now/lg*100));$("p-fill").style.width=pc+"%";
+      $("p-goal").textContent=(+last.slice(0,4))+"年"+(+last.slice(5))+"月の目標 "+m0(lg)+"万まで、あと "+man(Math.max(0,lg-now))+"万（いま "+Math.round(pc)+"%）";}
+    else{$("p-fill").style.width="0";$("p-goal").textContent="";}}
+  $("p-chart").innerHTML=chartSvg(rows);
+  var t='<table class="pt"><tr><th>月</th><th>目標</th><th>実績・見込み</th><th>差</th></tr>';
+  rows.forEach(function(r){var lab=r.kind==="done"?(r.est?"（推定）":""):r.kind==="cur"?"（見込み）":r.kind==="next"?"（予報）":"";
+    t+='<tr'+(r.ym===YM?' class="cur"':'')+'><td>'+(r.ym.slice(5)==="01"?r.ym.slice(2,4)+"年":"")+(+r.ym.slice(5))+'月</td><td>'+(r.goal!=null?m0(r.goal):"—")+'</td><td>'+(r.val!=null?man(r.val)+lab:"—")+'</td><td class="'+(r.val!=null&&r.goal!=null?(r.val>=r.goal?"plus":"minus"):"")+'">'+(r.val!=null&&r.goal!=null?(r.val>=r.goal?"＋":"−")+man(Math.abs(r.val-r.goal)):"")+'</td></tr>';});
+  $("p-table").innerHTML=t+'</table>';}
+function showTab(t){S.tab=t;$("pane-y").hidden=t!=="y";$("pane-p").hidden=t!=="p";$("btn-add").hidden=t!=="y";
+  $("tab-y").className=t==="y"?"on":"";$("tab-p").className=t==="p"?"on":"";if(t==="p")renderProgress();}
 function render(){
   var mo=+YM.slice(5);$("ttl").textContent=mo+"月の予報";
   $("sync").textContent=SYNC_ERR||(S.feedAt?"メール取り込み："+new Date(S.feedAt).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}):"");
   var c=calc(YM);
   if(c.an&&!SYNC_ERR)$("sync").textContent+=($("sync").textContent?" ・ ":"")+"残高入力 "+mo+"/"+c.an.day;
-  $("ask-start").hidden=c.start!=null;$("ask-month").textContent=mo;
+  var own=S.months[YM].start!=null;$("ask-start").hidden=own;
+  $("ask-carry").textContent=!own&&c.start!=null?"いまは前の月からの引き継ぎ（見込み "+man(c.start)+"万）で計算しています。実際の残高を入れると正確になります":"";$("ask-month").textContent=mo;
   if(c.start==null){["avail","end","next"].forEach(function(id){$(id).innerHTML='—<small>万円</small>';});
-    $("avail-note").textContent="月初の残高を入れると計算します";$("flow").innerHTML="";return;}
+    $("avail-note").textContent="月初の残高を入れると計算します";$("save-tile").hidden=true;$("flow").innerHTML="";return;}
   var av=c.minSafe-S.target;
   $("hero").className="hero"+(av<0?" bad":"");
   $("avail").innerHTML=man(Math.max(0,av))+"<small>万円</small>";
@@ -353,6 +465,7 @@ function render(){
     h2+='<div class="ds">カードは「今月ここまでのペース」と「過去の月の平均」を、日がたつほどペース寄りに混ぜて予測。精算・給料は過去の入金から、家賃などは毎月の予定から。'+(nm?'支出メモ '+nm+'件。':'')+'</div>';}
   $("next-note").innerHTML=h2;
   renderSave(mcap);
+  if(S.tab==="p")renderProgress();
   $("btn-flow").textContent=($("flow").hidden?"▼":"▲")+" 今月の流れを見る（"+c.ev.length+"件）";
   var h='<div class="it"><span class="d">'+mo+'/1</span><span class="n">月初の残高</span><span class="b num">'+man(c.start)+'万</span></div>';
   var anRow=c.an?'<div class="it"><span class="d">'+mo+'/'+c.an.day+'</span><span class="n"><b>今日の残高（入力）</b></span><span class="b num">'+man(c.an.bal)+'万</span></div>':"",anShown=false;
@@ -375,9 +488,11 @@ function render(){
 }
 
 /* ---------- 操作 ---------- */
-$("in-start").addEventListener("change",function(){var v=parseInt(this.value,10);if(isNaN(v))return;ensure(YM).start=v;save();render();});
+$("in-start").addEventListener("change",function(){var v=parseInt(this.value,10);if(isNaN(v))return;setStart(YM,v);save();render();});
 $("cap-range").addEventListener("input",function(){S.months[YM].cap=parseInt(this.value,10);save();render();});
 $("cap-reset").onclick=function(){S.months[YM].cap=null;save();render();};
+$("tab-y").onclick=function(){showTab("y");save();};
+$("tab-p").onclick=function(){showTab("p");save();};
 $("btn-flow").onclick=function(){$("flow").hidden=!$("flow").hidden;render();};
 $("btn-add").onclick=function(){$("a-name").value="";$("a-amt").value="";$("a-day").value=TODAY;$("dlg-add").showModal();};
 $("a-cancel").onclick=function(){$("dlg-add").close();};
@@ -399,11 +514,13 @@ $("e-del").onclick=function(){if(!confirm("「"+editing.name+"」を今月から
 
 function tplRow(t){return '<div class="tpl"><input value="'+esc(t.name)+'"><input type="number" inputmode="numeric" value="'+t.day+'"><input type="number" inputmode="numeric" value="'+t.amt+'"><input type="checkbox" '+(t.unsure?"checked":"")+'></div>';}
 $("btn-set").onclick=function(){var an=ensure(YM).anchor;$("s-bal").value=an?an.bal:"";$("s-bal-note").textContent=an?"入力した日："+(+YM.slice(5))+"/"+an.day+"（空にして保存すると、月初の残高からの計算に戻ります）":"";
-  $("s-target").value=S.target;$("s-zai").value=S.zaiSave!=null?S.zaiSave:"";$("s-start").value=ensure(YM).start==null?"":S.months[YM].start;
+  $("s-target").value=S.target;$("s-sbi").value=S.sbi||"";$("s-goals").value=goalsText();goalsNote();$("s-zai").value=S.zaiSave!=null?S.zaiSave:"";$("s-start").value=ensure(YM).start==null?"":S.months[YM].start;
   $("s-tpl").innerHTML=S.tpl.map(tplRow).join("");$("s-gas").value=S.gas;$("s-token").value=S.token;$("dlg-set").showModal();};
 $("s-cancel").onclick=function(){$("dlg-set").close();};
 $("s-ok").onclick=function(){S.target=parseInt($("s-target").value,10)||0;S.zaiSave=parseInt($("s-zai").value,10)||0;
-  var st=$("s-start").value;S.months[YM].start=st===""?null:parseInt(st,10);
+  var st=$("s-start").value;setStart(YM,st===""?null:parseInt(st,10));
+  S.sbi=parseInt($("s-sbi").value,10)||0;
+  var gl=$("s-goals").value.trim();S.goals=gl?parseGoals(gl):{};
   var bv=$("s-bal").value,oa=S.months[YM].anchor;
   if(bv==="")delete S.months[YM].anchor;else if(!oa||String(oa.bal)!==bv)S.months[YM].anchor={day:TODAY,bal:parseInt(bv,10)};   /* 値を変えたときだけ、今日の日付で入れ直す */
   var rows=$("s-tpl").querySelectorAll(".tpl");S.tpl=S.tpl.map(function(t,i){var f=rows[i].querySelectorAll("input");
@@ -413,7 +530,7 @@ $("s-sync").onclick=function(){S.gas=$("s-gas").value.trim();S.token=$("s-token"
 $("s-backup").onclick=function(){var t=JSON.stringify(S);
   (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){alert("コピーしました。メモ帳などに貼って保存してください。");},function(){prompt("これをコピーして保存してください",t);});};
 
-ensure(YM);save();render();sync();
+ensure(YM);autoClose();save();render();showTab(S.tab||"y");sync();
 })();
 </script>
 </body>
